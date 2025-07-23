@@ -57,9 +57,9 @@ jobs:
 
       - name: Decode and install provisioning profile
         run: |
-          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > Routico.mobileprovision
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > RouticoDEV.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp Routico.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          cp RouticoDEV.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 
       - name: Install CocoaPods
         run: |
