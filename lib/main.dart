@@ -604,9 +604,9 @@ void initState() {
         // Warm up TTS engine
         await _warmupTts();
         
-        debugPrint("Arabic TTS successfully configured on iOS");
+        _showSnackBar("Arabic TTS initialized successfully");
       } else {
-        debugPrint("No Arabic TTS support found on iOS, using fallback");
+        _showSnackBar("Fell Back to default TTS settings for iOS");
         await _reinitializeTtsForIOS();
       }
       
@@ -1408,7 +1408,7 @@ void initState() {
                   instruction: currentInstruction!,
                   isVoiceMuted: _isVoiceMuted,
                   onToggleVoice: _toggleVoiceMute,
-                  expectedArrivalTime: formattedETA, // Add ETA to top panel
+                  expectedArrivalTime: formattedETA,
                 ),
               ),
             ),
@@ -1613,7 +1613,6 @@ void initState() {
     );
   }
 
-  // Fix _buildRouteCalculationIndicator method
   Widget _buildRouteCalculationIndicator() {
     return Row(
       children: [
@@ -1655,7 +1654,6 @@ void initState() {
     );
   }
 
-  // Fix _buildRouteError method
   Widget _buildRouteError() {
     return Row(
       children: [
@@ -1765,14 +1763,14 @@ class NavigationInstructionPanel extends StatefulWidget {
   final gem.NavigationInstruction instruction;
   final bool isVoiceMuted;
   final VoidCallback onToggleVoice;
-  final String expectedArrivalTime; // Add ETA parameter
+  final String expectedArrivalTime;
 
   const NavigationInstructionPanel({
     super.key,
     required this.instruction,
     required this.isVoiceMuted,
     required this.onToggleVoice,
-    required this.expectedArrivalTime, // Add ETA parameter
+    required this.expectedArrivalTime,
   });
 
   @override
@@ -1861,7 +1859,6 @@ class _NavigationInstructionPanelState extends State<NavigationInstructionPanel>
                 ),
               ],
             ),
-            // Add ETA display in top panel
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1918,29 +1915,27 @@ class NavigationBottomPanel extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Reduced vertical margin
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20), // Slightly reduced border radius
+          borderRadius: BorderRadius.circular(20),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Reduced padding
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Ensure minimal height
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               destinationName,
               style: const TextStyle(
-                fontSize: 16, // Slightly smaller font
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: kPrimaryColor,
               ),
               textDirection: TextDirection.rtl,
             ),
-            const SizedBox(height: 8), // Reduced spacing
-            // Reorganized info row with only distance and duration
+            const SizedBox(height: 8),
             Row(
               children: [
-                // Distance and Duration in a compact layout
                 Expanded(
                   flex: 2,
                   child: Row(
@@ -1951,7 +1946,6 @@ class NavigationBottomPanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Voice and Exit buttons on the right side
                 Expanded(
                   flex: 1,
                   child: Row(
@@ -1972,12 +1966,12 @@ class NavigationBottomPanel extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8), // Reduced spacing
+            const SizedBox(height: 8),
             LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.grey[300],
               valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
-              minHeight: 6, // Slightly thinner progress bar
+              minHeight: 6,
               borderRadius: BorderRadius.circular(3),
             ),
           ],
@@ -1990,12 +1984,12 @@ class NavigationBottomPanel extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: kPrimaryColor, size: 20), // Smaller icon
+        Icon(icon, color: kPrimaryColor, size: 20),
         const SizedBox(height: 2),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 14, // Smaller font
+            fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
           textDirection: TextDirection.rtl,
@@ -2012,7 +2006,7 @@ class NavigationBottomPanel extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8), // Compact padding
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
@@ -2020,7 +2014,7 @@ class NavigationBottomPanel extends StatelessWidget {
         child: Icon(
           icon,
           color: color,
-          size: 20, // Smaller icon size
+          size: 20,
         ),
       ),
     );
