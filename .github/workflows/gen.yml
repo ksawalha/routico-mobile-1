@@ -76,18 +76,20 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -archivePath build/Runner.xcarchive \
+            -destination 'generic/platform=iOS' \
             archive \
             DEVELOPMENT_TEAM="$APP_STORE_TEAM_ID" \
             CODE_SIGN_IDENTITY="Apple Development" \
             CODE_SIGN_STYLE="Manual" \
             PROVISIONING_PROFILE_SPECIFIER="RouticoDEV" \
             -allowProvisioningUpdates
-
+      
           xcodebuild -exportArchive \
             -archivePath build/Runner.xcarchive \
             -exportOptionsPlist ios/exportOptions.plist \
             -exportPath build/export \
             -allowProvisioningUpdates
+
 
       - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
