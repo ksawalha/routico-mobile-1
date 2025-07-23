@@ -10,7 +10,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -92,11 +91,7 @@ Future<void> _initializeOneSignal() async {
     OneSignal.initialize(kOneSignalAppId);
     
     // Configure based on platform
-    if (Platform.isIOS) {
-      // For iOS, configure specific settings
-      await OneSignal.Notifications.requestPermission(true);
-    } else {
-      // For Android, automatically opt-in
+    if (Platform.isAndroid) {
       await OneSignal.User.pushSubscription.optIn();
     }
     
@@ -550,7 +545,7 @@ void initState() {
       var languages = await _flutterTts.getLanguages;
       
       debugPrint("Available TTS languages: $languages");
-      debugPrint("Available TTS voices: ${voices.length} voices found");
+      debugPrint("Available TTS voices: ${voices?.length ?? 0} voices found");
       
       // Try to find Arabic voices
       List<String> arabicLanguageCodes = [
@@ -561,24 +556,37 @@ void initState() {
       Map<String, dynamic>? selectedVoice;
       
       // First try to find Arabic voices
-      for (var voice in voices) {
-        String? voiceLocale = voice['locale']?.toString().toLowerCase();
-        if (voiceLocale != null && voiceLocale.startsWith('ar')) {
-          selectedVoice = voice;
-          selectedLanguage = voice['locale'];
-          debugPrint("Found Arabic voice: ${voice['name']} (${voice['locale']})");
-          break;
+      if (voices != null && voices is List) {
+        for (var voice in voices) {
+          try {
+            // Safely convert voice map to String-keyed map
+            final voiceMap = Map<String, dynamic>.from(voice as Map<dynamic, dynamic>);
+            
+            String? voiceLocale = voiceMap['locale']?.toString().toLowerCase();
+            if (voiceLocale != null && voiceLocale.startsWith('ar')) {
+              selectedVoice = voiceMap;
+              selectedLanguage = voiceMap['locale'];
+              debugPrint("Found Arabic voice: ${voiceMap['name']} (${voiceMap['locale']})");
+              break;
+            }
+          } catch (e) {
+            debugPrint("Error processing voice: $e");
+          }
         }
       }
       
       // If no Arabic voice found, check languages
       if (selectedLanguage == null) {
         for (String langCode in arabicLanguageCodes) {
-          var isAvailable = await _flutterTts.isLanguageAvailable(langCode);
-          if (isAvailable) {
-            selectedLanguage = langCode;
-            debugPrint("Found Arabic language support: $langCode");
-            break;
+          try {
+            var isAvailable = await _flutterTts.isLanguageAvailable(langCode);
+            if (isAvailable) {
+              selectedLanguage = langCode;
+              debugPrint("Found Arabic language support: $langCode");
+              break;
+            }
+          } catch (e) {
+            debugPrint("Error checking language $langCode: $e");
           }
         }
       }
@@ -804,7 +812,7 @@ void initState() {
               forceLocationManager: false,
               intervalDuration: const Duration(seconds: 10),
               foregroundNotificationConfig: const ForegroundNotificationConfig(
-                notificationText: "تطبيق روتيكو يستخدم موقعك للملاحة",
+                notificationText: "التطبيق يستخدم موقعك للملاحة",
                 notificationTitle: "الملاحة نشطة",
                 enableWakeLock: true,
               ),
@@ -969,8 +977,13 @@ void initState() {
       ).listen(
         (position) {
           if (!mounted) return;
-          setState(() => _currentPosition = position);
-          _updateNavigationProgress();
+          // Only update if GPS accuracy is extremely high
+          if (position.accuracy <= 10.0) {
+            setState(() => _currentPosition = position);
+            _updateNavigationProgress();
+          } else {
+            debugPrint('GPS accuracy too low (${position.accuracy}m), ignoring movement');
+          }
         },
         onError: (error) {
           debugPrint('Location tracking error: $error');
@@ -986,7 +999,11 @@ void initState() {
 
   void _updateNavigationProgress() {
     if (_currentRoute == null) return;
-
+    // Only update progress if current position is accurate
+    if (_currentPosition != null && _currentPosition!.accuracy > 5.0) {
+      debugPrint('Skipping navigation progress update due to low GPS accuracy (${_currentPosition!.accuracy}m)');
+      return;
+    }
     _remainingTimeDistance = _currentRoute!.getTimeDistance(activePart: true);
     
     setState(() {
