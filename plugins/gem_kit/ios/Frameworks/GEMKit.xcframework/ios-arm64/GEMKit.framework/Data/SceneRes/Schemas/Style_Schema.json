@@ -1,0 +1,1861 @@
+{
+	"p_schema":
+	{
+		"sources_list":
+		{
+			"p_id": 1,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"sources":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": "uint"
+						},
+						"name":
+						{
+							"p_id": 2,
+							"p_type": "string"
+						}
+						,
+						"composite":
+						{
+							"p_id": 3,
+							"p_type": "struct",
+							"p_struct":
+							{
+								"location":
+								{
+									"p_id": 1,
+									"p_type": "string"
+								},
+								"type":
+								{
+									"p_id": 2,
+									"p_type": "string"
+								},
+								"location_bbox":
+								{
+									"p_id": 3,
+									"p_type": "string"
+								},
+								"qtree":
+								{
+									"p_id": 4,
+									"p_type": "string"
+								},
+								"encoding":
+								{
+									"p_id": 5,
+									"p_type": "string"
+								},
+								"high_res":
+								{
+									"p_id": 6,
+									"p_type": "uint"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"map_schemes_list_section":
+		{
+			"p_id": 2,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"available_map_schemes":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"name":
+						{
+							"p_id": 1,
+							"p_type": "string"
+						},
+						"translations":
+						{
+							"p_id": 2,
+							"p_type": "struct",
+							"p_struct":
+							{
+								"language_code":
+								{
+									"p_id": 1,
+									"p_type": "string"
+								},
+								"name":
+								{
+									"p_id": 2,
+									"p_type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"map_schemes_section":
+		{
+			"p_id": 3,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"map_schemes":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": "uint"
+						},
+						"name":
+						{
+							"p_id": 2,
+							"p_type": "string"
+						},
+						"definition":
+						{
+
+							"p_id": 3,
+							"p_type": "struct",
+							"p_struct":
+							{
+							
+								"layers":
+								{
+									"p_id": 1,
+									"p_type": "struct",
+									"p_struct":
+									{
+										"id":
+										{
+											"p_id": 1,
+											"p_type": "uint"
+										},
+										"name":
+										{
+											"p_id": 2,
+											"p_type": "string"
+										},
+										"source":
+										{
+											"p_id": 3,
+											"p_type": "string"
+										},
+										"sourcedata_id":
+										{
+											"p_id": 4,
+											"p_type": "uint"
+										},
+										"type":
+										{
+											"p_id": 5,
+											"p_type": ">string"
+										},
+										"layout":
+										{
+											"p_id": 6,
+											"p_type": "struct",
+											"p_struct":
+											{
+												"line-cap":
+												{
+													"p_id": 1,
+													"p_type": "uint"
+												}
+											}
+										},
+										"paint":
+										{
+											"p_id": 7,
+											"p_type": "struct",
+											"p_struct":
+											{
+												"fill-color":
+												{
+													"p_id": 1,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": ">uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												}
+												,
+												"fill-opacity":
+												{
+													"p_id": 2,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"opacity_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"opacity_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"opacity":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												},
+												"fill-outline-color":
+												{
+													"p_id": 3,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}																
+															}
+														}
+													}
+												},
+												"fill-outline-opacity":
+												{
+													"p_id": 4,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"opacity_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"opacity_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"opacity":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												},
+												"line-width":
+												{
+													"p_id": 5,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"line_width_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"line_width_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"width":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+															
+														}													
+													}
+												},
+												"line-outline-width":
+												{
+													"p_id": 6,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"line_width_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"line_width_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"width":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												
+												"line-inner-color":
+												{
+													"p_id": 7,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												},
+												"line-outer-color":
+												{
+													"p_id": 8,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+															"easing_type":
+															{
+																"p_id": 2,
+																"p_type": "uint"
+															}																
+															}
+														}
+													}
+												},
+												"text-size":
+												{
+													"p_id": 9,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_size_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_size_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+															}													
+													}
+												
+												},
+												"text-color":
+												{
+													"p_id": 10,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												
+												},
+												"text-outline-size":
+												{
+													"p_id": 11,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_size_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_size_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												
+												"text-outline-color":
+												{
+													"p_id": 12,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+															"easing_type":
+															{
+																"p_id": 2,
+																"p_type": "uint"
+															}
+															}
+														}
+													}
+												
+												},
+												"icon":
+												{
+													"p_id": 13,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"custom_icon":
+																		{
+																			"p_id": 2,
+																			"p_type": ">uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}																
+															}
+														}														
+													}
+												},
+												"text-row-height":
+												{
+													"p_id": 14,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_row_height_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_row_height_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												"text-max-width":
+												{
+													"p_id": 15,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_max_width_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_max_width_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												"text-padding":
+												{
+													"p_id": 16,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_padding_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_padding_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},												
+												"icon-padding":
+												{
+													"p_id": 17,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_padding_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_padding_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												"text-rotation-angle":
+												{
+													"p_id": 18,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"angle-stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"angle_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"angle":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												"icon-rotation-angle":
+												{
+													"p_id": 19,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"angle_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"angle_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"angle":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												
+												},
+												"line-blur":
+												{
+													"p_id": 20,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"line_blur_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"line_blur_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"blur":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"translate-on-X":
+												{
+													"p_id": 21,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"translate_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"translate_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"value":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"translate-on-Y":
+												{
+													"p_id": 22,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"translate_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"translate_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"value":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"offset-on-X":
+												{
+													"p_id": 23,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"offset_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"offset_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"value":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"offset-on-Y":
+												{
+													"p_id": 24,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"offset_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"offset_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"value":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"icon-size":
+												{
+													"p_id": 25,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_size_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_size_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"size":
+																		{
+																			"p_id": 2,
+																			"p_type": "double"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-justify":
+												{
+													"p_id": 26,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_justify_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_justify_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"intvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-anchor":
+												{
+													"p_id": 27,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_anchor_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_anchor_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"intvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-overlap":
+												{
+													"p_id": 28,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_overlap_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_overlap_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-placement":
+												{
+													"p_id": 29,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_placement_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_placement_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-optional":
+												{
+													"p_id": 30,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_optional_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_optional_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"icon-overlap":
+												{
+													"p_id": 31,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_overlap_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_overlap_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"icon-placement":
+												{
+													"p_id": 32,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_placement_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_placement_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"icon-optional":
+												{
+													"p_id": 33,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"icon_optional_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"icon_optional_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"boolvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"text-transform":
+												{
+													"p_id": 34,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_transform_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_transform_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"intvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"3dMesh":
+												{
+													"p_id": 35,
+													"p_type": "uint"
+												},
+												"text-style":
+												{
+													"p_id": 36,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"text_style_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"text_style_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"intvalue":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}													
+													}
+												},
+												"background-symbol-color":
+												{
+													"p_id": 37,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"color_stops":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct":
+															{
+																"color_stop":
+																{
+																	"p_id": 1,
+																	"p_type": "struct",
+																	"p_struct":
+																	{
+																		"level_id":
+																		{
+																			"p_id": 1,
+																			"p_type": "uint"
+																		},
+																		"color":
+																		{
+																			"p_id": 2,
+																			"p_type": "uint"
+																		}
+																	}
+																},
+																"easing_type":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																}
+															}
+														}
+													}
+												}
+											}
+										},
+										"minzoom":
+										{
+											"p_id": 8,
+											"p_type": "uint"
+										},
+										"maxzoom":
+										{
+											"p_id": 9,
+											"p_type": "uint"
+										},
+										"group_id":
+										{
+											"p_id": 10,
+											"p_type": "uint"											
+										},
+										"filter":
+										{
+											"p_id": 11,
+											"p_type": "struct",
+											"p_struct":
+											{
+												"expression":
+												{
+												"p_id": 1,
+												"p_type": "struct",
+												"p_struct":
+												{
+													"id":
+													{
+													"p_id": 1,
+													"p_type": "uint"
+													}
+													,
+													"condition":
+													{
+														"p_id": 2,
+														"p_type": "string"
+													},
+														"key":
+													{
+														"p_id": 3,
+														"p_type": "string"
+													},
+														"values":
+														{
+															"p_id": 4,
+															"p_type": "array_string"
+														}
+												}
+												
+												},
+												"condition":
+												{
+													"p_id": 2,
+													"p_type": "string"
+												}
+											}	
+										},
+										"isTemplate":
+										{
+											"p_id": 12,
+											"p_type": "uint"
+										},
+										"label_text":
+										{
+											"p_id": 13,
+											"p_type": "struct",
+											"p_struct":
+											{
+												"use_default":
+												{
+													"p_id": 1,
+													"p_type": "uint"
+												},
+												"op":
+												{
+													"p_id": 2,
+													"p_type": "string"
+												},
+												"label_keys":
+												{
+													"p_id": 3,
+													"p_type": "struct",
+													"p_struct":
+													{
+														"label_key":
+														{
+															"p_id": 1,
+															"p_type": "struct",
+															"p_struct": {
+																"id":
+																{
+																	"p_id": 1,
+																	"p_type": "uint"
+																},
+																"use_key_text":
+																{
+																	"p_id": 2,
+																	"p_type": "uint"
+																},
+																"key_text":
+																{
+																	"p_id": 3,
+																	"p_type": "string"
+																},
+																"custom_text":
+																{
+																	"p_id": 4,
+																	"p_type": "string"
+																}
+															}
+														}
+													}
+												},
+												"label_expression":
+												{
+													"p_id": 4,
+													"p_type": "string"
+												}
+											}
+										},
+										"offline_grabber":
+										{
+											"p_id": 14,
+											"p_type": "struct",
+											"p_struct":
+											{
+												"max_level":
+												{
+													"p_id": 1,
+													"p_type": "uint"
+												},
+												"max_tile_count":
+												{
+													"p_id": 2,
+													"p_type": "uint"
+												}
+											}
+										},
+										"metaCategoryID":
+										{
+											"p_id": 15,
+											"p_type": "uint"
+										},
+										"data_source":
+										{
+											"p_id": 16,
+											"p_type": "string"
+										},
+										"data_query":
+										{
+											"p_id": 17,
+											"p_type": "string"
+										},
+										"data_agg_expr":
+										{
+											"p_id": 18,
+											"p_type": "string"
+										},
+										"data_cluster":
+										{
+											"p_id": 19,
+											"p_type": "string"
+										},
+										"contour_interval":
+										{
+											"p_id": 20,
+											"p_type": "uint"
+										}
+									}
+								}
+							}
+						},
+						"groups_section":
+						{
+							"p_id": 4,
+							"p_type": "struct",
+							"p_struct":
+							{
+								"groups":
+								{
+									"p_id": 1,
+									"p_type": "struct",
+									"p_struct":
+									{
+										"id":
+										{
+											"p_id": 1,
+											"p_type": "uint"
+										},
+										"name":
+										{
+											"p_id": 2,
+											"p_type": "string"
+										},
+										"collapsed":
+										{
+											"p_id": 3,
+											"p_type": "uint"
+										},
+										"parent_id":
+										{
+											"p_id": 4,
+											"p_type": "uint"
+										}
+									}
+								}
+							}
+							
+						}
+					}
+				}
+				,
+			"slippytiles":
+			{
+				"p_id": 2,
+				"p_type": "uint"											
+			}
+			}
+		},
+		"icons_section":
+		{
+			"p_id": 4,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"icons":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": ">uint"
+						},
+						"value":
+						{
+							"p_id": 2,
+							"p_type": ">blob"
+						}
+					}
+				}
+			}
+			
+		}
+	}
+}

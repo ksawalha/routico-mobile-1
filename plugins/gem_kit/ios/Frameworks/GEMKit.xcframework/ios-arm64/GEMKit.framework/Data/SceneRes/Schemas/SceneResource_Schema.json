@@ -1,0 +1,256 @@
+{
+	"p_schema":
+	{
+		"scenes_section":
+		{
+			"p_id": 1,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"available_scenes":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": "uint"
+						},
+						"objects_list":
+						{
+							"p_id": 2,
+							"p_type": "struct",
+							"p_struct":
+							{
+								"id":
+								{
+									"p_id": 1,
+									"p_type": "uint"
+								},
+								"name":
+								{
+									"p_id": 2,
+									"p_type": "string"
+								},
+								"type":
+								{
+									"p_id": 3,
+									"p_type": "string"
+								},
+								"properties":
+								{
+									"p_id": 4,
+									"p_type": "struct",
+									"p_struct":
+									{
+										"position_X":
+										{
+											"p_id": 1,
+											"p_type": "double"
+										},
+										"position_Y":
+										{
+											"p_id": 2,
+											"p_type": "double"
+								
+										},
+										"position_Z":
+										{
+											"p_id": 3,
+											"p_type": "double"
+										},
+										"radius":
+										{
+											"p_id": 4,
+											"p_type": "double"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"camera_section":
+		{
+			"p_id": 2,
+			"p_type": "struct",
+			"p_struct":
+				{
+					"available_cameras":
+					{
+						"p_id": 1,
+						"p_type": "struct",
+						"p_struct":
+						{
+							"id":
+							{
+								"p_id": 1,
+								"p_type": "uint"
+							},
+							"properties":
+							{
+								"p_id": 2,
+								"p_type": "struct",
+								"p_struct":
+								{
+									"position_X":
+									{
+										"p_id": 1,
+										"p_type": "double"
+									},
+									"position_Y":
+									{
+										"p_id": 2,
+										"p_type": "double"
+									},
+									"position_Z":
+									{
+										"p_id": 3,
+										"p_type": "double"
+									},
+									"quatOrientation_X":
+									{
+										"p_id": 4,
+										"p_type": "double"
+									},
+									"quatOrientation_Y":
+									{
+										"p_id": 5,
+										"p_type": "double"
+									},
+									"quatOrientation_Z":
+									{
+										"p_id": 6,
+										"p_type": "double"
+									},
+									"quatOrientation_W":
+									{
+										"p_id": 7,
+										"p_type": "double"
+									},
+									"source_scene":
+									{
+										"p_id": 8,
+										"p_type": "uint"
+									}
+								}
+							}
+						}
+					}
+			}
+		},
+		"views_section":
+		{
+			"p_id": 3,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"views_list":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": "uint"		
+						},
+						"width_ratio":
+						{
+							"p_id":2,
+							"p_type": "double"
+						},
+						"height_ratio":
+						{
+							"p_id":3,
+							"p_type": "double"
+						},
+						"bottomLeftX_Offset":
+						{
+							"p_id":4,
+							"p_type": "double"
+						},
+						"bottomLeftY_Offset":
+						{
+							"p_id":5,
+							"p_type": "double"
+						},
+						"background_color":
+						{
+							"p_id":7,
+							"p_type": "uint"
+						}
+					}
+				}
+			}
+		},
+		"screen_section":
+		{
+			"p_id": 4,
+			"p_type": "struct",
+			"p_struct":
+			{
+				"screens_list":
+				{
+					"p_id": 1,
+					"p_type": "struct",
+					"p_struct":
+					{
+						"id":
+						{
+							"p_id": 1,
+							"p_type": "uint"		
+						},
+						"views_container":
+						{
+							"p_id": 2,
+							"p_type": "struct",
+							"p_struct":
+							{
+								"views_list":
+								{
+									"p_id": 1,
+									"p_type": "struct",
+									"p_struct":
+									{
+										"id":
+										{
+											"p_id": 1,
+											"p_type": "uint"		
+										},
+										"source_scene":
+										{
+											"p_id": 2,
+											"p_type": "uint"						
+										},
+										"source_camera":
+										{
+											"p_id": 3,
+											"p_type": "uint"						
+										},
+										"source_style":
+										{
+											"p_id": 4,
+											"p_type": "uint"						
+										},
+										"source_view":
+										{
+											"p_id": 5,
+											"p_type": "uint"						
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+	}
+}

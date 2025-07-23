@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:gem_kit/core.dart' as gem;
 
 void main() => runApp(const MyApp());
 
@@ -12,6 +13,7 @@ class MyApp extends StatelessWidget {
 class LocationPage extends StatefulWidget {
   @override
   State<LocationPage> createState() => _LocationPageState();
+  
 }
 
 class _LocationPageState extends State<LocationPage> {
@@ -20,7 +22,7 @@ class _LocationPageState extends State<LocationPage> {
   Future<void> getLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
-
+    gem.GemKit.initialize(appAuthorization: 'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJlZTkyMWMwYi05ODAyLTRhZWEtODI3OS1hYjJkNzBhY2Q1MzkiLCJleHAiOjE3Njg5MDI4NjYsImlzcyI6Ik1hZ2ljIExhbmUiLCJqdGkiOiI3YWJiMDRkZS1lZjAxLTRiMjYtOTNhYS0zZGQ5ZTczMzhkZjYifQ.24S_NXRmbh0nFJ2lv_4dZ4QAMG-BH2c73ZzoyNQByhRvr1HEvZEIuuOiRYtZQGstTbH6h3zuEvQG4oI_JjUXrQ');
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       setState(() {

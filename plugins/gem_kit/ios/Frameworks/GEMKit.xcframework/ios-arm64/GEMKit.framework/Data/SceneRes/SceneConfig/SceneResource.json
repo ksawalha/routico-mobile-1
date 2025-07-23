@@ -1,0 +1,110 @@
+{
+	"scenes_section":
+	{
+	"available_scenes":
+	[
+	{
+		"id": 1,
+		"objects_list":
+		[
+		{
+		"id":1,
+		"name":"Earth",	
+		"type":"sphere",
+		"properties":
+			{
+				"position_X": 0,
+				"position_Y": 0,
+				"position_Z": 0,
+				"radius"	: 1
+			}
+		}
+		]
+	}
+	]
+	},
+	"camera_section":
+	{
+	"available_cameras":
+	[
+	{
+		"id": 1,
+		"properties":
+		{
+			"position_X"		: 0.529124618,
+			"position_Y"		: 0.697613597,
+			"position_Z"		: 0.816337764,
+			"quatOrientation_X"	: 0.176954851,
+			"quatOrientation_Y" : 0.363909215,
+			"quatOrientation_Z"	: 0.898307741,
+			"quatOrientation_W"	: 0.171069160,
+			"source_scene"		: 1
+		}
+	},
+	{
+		"id": 2,
+		"properties":
+		{
+			"position_X"		: 0.529124618,
+			"position_Y"		: 0.697613597,
+			"position_Z"		: 0.816337764,
+			"quatOrientation_X"	: 0.176954851,
+			"quatOrientation_Y" : 0.363909215,
+			"quatOrientation_Z"	: 0.898307741,
+			"quatOrientation_W"	: 0.171069160,
+			"source_scene"		: 1
+		}
+	},
+	{
+		"id": 3,
+		"properties":
+		{
+			"position_X"		: 0.529124618,
+			"position_Y"		: 0.697613597,
+			"position_Z"		: 0.816337764,
+			"quatOrientation_X"	: 0.176954851,
+			"quatOrientation_Y" : 0.363909215,
+			"quatOrientation_Z"	: 0.898307741,
+			"quatOrientation_W"	: 0.171069160,
+			"source_scene"		: 1
+		}
+	}
+	]
+	},
+	"views_section":
+	{
+	"views_list":
+	[
+	{
+		"id": 0,
+		"bottomLeftX_Offset": 0,
+		"bottomLeftY_Offset": 0,
+		"width_ratio"		: 1.0,
+		"height_ratio"		: 1.0,
+		"background_color"	: 0
+	}
+	]
+	},
+	"screen_section":
+	{
+	"screens_list":
+	[
+	{
+		"id": 0,
+		"views_container":
+		{
+			"views_list":
+			[
+			{
+				"id": 0,
+				"source_view"		: 0,
+				"source_scene"		: 1,
+				"source_camera" 	: 1,
+				"source_style" 		: 1
+			}
+			]
+		}
+	}
+	]
+	}
+}

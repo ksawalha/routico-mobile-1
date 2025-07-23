@@ -1,0 +1,11 @@
+framework module GEMKit {
+  umbrella header "GEMKit.h"
+  export *
+
+  module * { export * }
+}
+
+module GEMKit.Swift {
+  header "GEMKit-Swift.h"
+  requires objc
+}

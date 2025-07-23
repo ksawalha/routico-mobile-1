@@ -1,0 +1,58 @@
+name: gem_kit
+description:  Magic Lane Maps SDK for Flutter offers high-performance mapping and navigation with global coverage, 3D terrain, offline support, real-time traffic, customizable routing, and voice-guided turn-by-turn navigation. Includes rich search capabilities, custom styles, directions, location, geocoding, recording and more.
+version: 2.23.0
+homepage: https://www.magiclane.com/web
+publish_to: none
+documentation: https://developer.magiclane.com/docs/flutter/category/introduction
+
+topics:
+ - map
+ - magic-lane
+ - navigation
+ - routing
+ - location
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: ">=3.27.0"
+
+platforms:
+  android:
+  ios:
+
+dependencies:
+  ffi: ^2.0.1
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  logging: ^1.0.0
+  meta: ^1.15.0
+  plugin_platform_interface: ^2.1.8
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.magiclane.gem_kit
+        pluginClass: GemKitPlugin
+      ios:
+        pluginClass: GemKitPlugin
+      web:
+        pluginClass: GemKitWeb
+        fileName: gem_kit_web.dart
+
+  # assets:
+  #   - assets/gemkitloader.js 
+  #   - assets/FlutterPluginWASM.js
+  #   - assets/FlutterPluginWASM.wasm
+  #   - assets/navarrow.glb

@@ -1,0 +1,47 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "GEMKit",
+    "printedName": "GEMKit",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "GEMKit"
+      },
+      {
+        "kind": "Import",
+        "name": "UIKit",
+        "printedName": "UIKit",
+        "declKind": "Import",
+        "moduleName": "GEMKit"
+      },
+      {
+        "kind": "Import",
+        "name": "SwiftUI",
+        "printedName": "SwiftUI",
+        "declKind": "Import",
+        "moduleName": "GEMKit"
+      },
+      {
+        "kind": "Import",
+        "name": "DeveloperToolsSupport",
+        "printedName": "DeveloperToolsSupport",
+        "declKind": "Import",
+        "moduleName": "GEMKit"
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": [
+    {
+      "filePath": "\/Users\/apopa\/Library\/Developer\/Xcode\/DerivedData\/GEMKit-acamtruuapenrmcsbsgkwuzwuitz\/Build\/Intermediates.noindex\/GEMKit.build\/Distribution-iphoneos\/GEMKit_Flutter_DashCam.build\/DerivedSources\/GeneratedAssetSymbols.swift",
+      "kind": "StringLiteral",
+      "offset": 731,
+      "length": 11,
+      "value": "\"PoweredBy\""
+    }
+  ]
+}
