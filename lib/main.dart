@@ -413,6 +413,10 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isVoiceMuted = false;
   bool _isOffline = false;
 
+  // TTS State
+  bool _isFirstSpeech = true;
+  bool _isTtsInitialized = false;
+
   // Data
   String? _destinationName;
   final TextEditingController _searchController = TextEditingController();
@@ -481,6 +485,7 @@ void initState() {
   }
 
   Future<void> _initTts() async {
+    _isFirstSpeech = true;
     _flutterTts = FlutterTts();
     try {
       // Platform-specific TTS configurations
@@ -513,6 +518,7 @@ void initState() {
         debugPrint("TTS started");
       });
       
+      setState(() => _isTtsInitialized = true);
     } catch (e) {
       debugPrint("$kTtsInitializationFailed: $e");
       // Try alternative initialization for iOS
@@ -595,14 +601,10 @@ void initState() {
         await _flutterTts.setPitch(1.0);
         await _flutterTts.setVolume(1.0);
         
-        // Test Arabic TTS
-        bool testResult = await _testArabicTts();
-        if (!testResult) {
-          debugPrint("Arabic TTS test failed, trying fallback setup");
-          await _reinitializeTtsForIOS();
-        } else {
-          debugPrint("Arabic TTS successfully configured on iOS");
-        }
+        // Warm up TTS engine
+        await _warmupTts();
+        
+        debugPrint("Arabic TTS successfully configured on iOS");
       } else {
         debugPrint("No Arabic TTS support found on iOS, using fallback");
         await _reinitializeTtsForIOS();
@@ -614,23 +616,18 @@ void initState() {
     }
   }
   
-  // Test Arabic TTS functionality
-  Future<bool> _testArabicTts() async {
+  // Warm up TTS engine for more reliable first speech
+  Future<void> _warmupTts() async {
     try {
-      // Test with a simple Arabic phrase
-      int result = await _flutterTts.speak("تجربة").timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => 0,
-      );
-      
-      // Wait a moment for the speech to start
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _flutterTts.stop();
-      
-      return result == 1;
+      if (Platform.isIOS) {
+        debugPrint("Warming up TTS engine...");
+        await _flutterTts.speak(" ");
+        await Future.delayed(const Duration(milliseconds: 100));
+        await _flutterTts.stop();
+        debugPrint("TTS warmup completed");
+      }
     } catch (e) {
-      debugPrint("Arabic TTS test error: $e");
-      return false;
+      debugPrint("TTS warmup error: $e");
     }
   }
   
@@ -678,6 +675,9 @@ void initState() {
       if (!languageSet) {
         debugPrint("iOS TTS fallback: No suitable language found");
       }
+      
+      // Warm up TTS engine
+      await _warmupTts();
       
     } catch (e) {
       debugPrint("iOS TTS fallback initialization failed: $e");
@@ -1203,12 +1203,19 @@ void initState() {
   }
   
   Future<bool> _speak(String text) async {
-    if (_isVoiceMuted) return false;
+    if (_isVoiceMuted || !_isTtsInitialized) return false;
     
     try {
       // Stop any ongoing speech first
       await _flutterTts.stop();
       
+      // For iOS first speech, add a delay to ensure TTS is ready
+      if (Platform.isIOS && _isFirstSpeech) {
+        debugPrint("Delaying first speech on iOS...");
+        await Future.delayed(const Duration(milliseconds: 500));
+        _isFirstSpeech = false;
+      }
+
       // Platform-specific volume and speech handling
       if (Platform.isIOS) {
         // For iOS, ensure audio session is active and volume is set
@@ -1275,7 +1282,10 @@ void initState() {
       // Auto-recovery for iOS
       if (Platform.isIOS && mounted) {
         Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) _setupiOSArabicTts();
+          if (mounted) {
+            _isFirstSpeech = true;
+            _setupiOSArabicTts();
+          }
         });
       }
       
