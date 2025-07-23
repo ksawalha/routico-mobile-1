@@ -25,68 +25,1521 @@ import 'dart:ui';
 import 'dart:io';
 import 'dart:math';
 
-void main() => runApp(const MyApp());
+const Color kPrimaryColor = Color(0xFF287EE8);
+const Duration kApiTimeout = Duration(seconds: 30);
+const Duration kLocationUpdateInterval = Duration(seconds: 1);
+const double kArrivalThreshold = 50.0; // meters
+const String kApiKeyEndpoint = 
+  'https://personal-d9p61k4i.outsystemscloud.com/production/rest/v1/token';
+const String kSearchEndpoint = 
+  'https://personal-d9p61k4i.outsystemscloud.com/production/rest/v1/search';
+const String kOneSignalAppId = "34f8a9aa-4822-485a-bd21-9d3c20692dd9";
+const String kMapStyleAsset = "assets/map.style";
+const String kLogoAsset = "assets/logo.png";
+const String kArabicLanguageCode = "ar-SA";
+const int kMaxApiRetries = 5;
+const int kRouteCalculationTimeout = 30; // seconds
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  @override
-  Widget build(BuildContext context) => MaterialApp(home: LocationPage());
-}
+// API Error Messages
+const String kLocationPermissionDenied = 'تم رفض إذن الموقع';
+const String kLocationFetchFailed = 'فشل في الحصول على الموقع';
+const String kApiKeyFetchFailed = 'فشل في جلب مفتاح API';
+const String kRouteCalculationFailed = 'فشل في حساب الطريق';
+const String kNoRouteAvailable = 'لا يوجد طريق بين المواقع المختارة';
+const String kSearchFailed = 'فشل البحث';
+const String kNavigationFailed = 'خطأ في الملاحة';
+const String kTtsInitializationFailed = 'فشل تهيئة محول النص إلى كلام';
+const String kConnectivityLost = 'الجهاز غير متصل بالإنترنت';
 
-class LocationPage extends StatefulWidget {
-  @override
-  State<LocationPage> createState() => _LocationPageState();
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize platform-specific settings
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+  ));
+  
+  // Initialize core SDKs first
+  await initializeCoreSdks();
+  
+  runApp(const AppWrapper());
 }
 
-class _LocationPageState extends State<LocationPage> {
-  String location = 'Press button to get location';
+Future<void> initializeCoreSdks() async {
+  try {
+    // Initialize GemKit SDK
+    await gem.GemKit.initialize(appAuthorization: "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJlZTkyMWMwYi05ODAyLTRhZWEtODI3OS1hYjJkNzBhY2Q1MzkiLCJleHAiOjE4MDY1MjY4MDAsImlzcyI6Ik1hZ2ljIExhbmUiLCJqdGkiOiJkM2UzNTk5Yy1iNWFjLTRmNWItODM3ZS1jYTIwMDk1NDkzNTMifQ.K1Vv4sxZ30fLxvNaEl6uFB5Q4imU1CdeAuMhEKyE2ThqALUMmqbCqsREgHqSWANPsXOjXPwchwJujXqU90-WZw");
+    
+    // Properly initialize OneSignal with better error handling
+    await _initializeOneSignal();
+    
+    // Check connectivity status initially
+    await Connectivity().checkConnectivity();
+    
+    // Request permissions with a better approach
+    await _requestBasicPermissions();
+  } catch (e) {
+    debugPrint("Core SDK initialization error: $e");
+    // Implement a recovery strategy or show an error dialog
+  }
+}
 
-  Future<void> getLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-    gem.GemKit.initialize(appAuthorization: 'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJlZTkyMWMwYi05ODAyLTRhZWEtODI3OS1hYjJkNzBhY2Q1MzkiLCJleHAiOjE3Njg5MDI4NjYsImlzcyI6Ik1hZ2ljIExhbmUiLCJqdGkiOiI3YWJiMDRkZS1lZjAxLTRiMjYtOTNhYS0zZGQ5ZTczMzhkZjYifQ.24S_NXRmbh0nFJ2lv_4dZ4QAMG-BH2c73ZzoyNQByhRvr1HEvZEIuuOiRYtZQGstTbH6h3zuEvQG4oI_JjUXrQ');
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
+Future<void> _initializeOneSignal() async {
+  try {
+    // Initialize OneSignal with proper configuration
+    OneSignal.initialize(kOneSignalAppId);
+    
+    // Configure based on platform
+    if (Platform.isIOS) {
+      // For iOS, configure specific settings
+      await OneSignal.Notifications.requestPermission(true);
+    } else {
+      // For Android, automatically opt-in
+      await OneSignal.User.pushSubscription.optIn();
+    }
+    
+    // Log success for debugging
+    debugPrint("OneSignal successfully initialized");
+  } catch (e) {
+    debugPrint("OneSignal initialization error: $e");
+    // Non-critical error, app can continue without push notifications
+  }
+}
+
+Future<void> _requestBasicPermissions() async {
+  try {
+    // Request location permission with better user experience
+    // This doesn't block app initialization
+    final status = await Permission.locationWhenInUse.request();
+    debugPrint("Location permission status: $status");
+  } catch (e) {
+    debugPrint("Permission request error: $e");
+  }
+}
+
+class AppWrapper extends StatelessWidget {
+  const AppWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primaryColor: kPrimaryColor,
+        textTheme: _createTextTheme(),
+      ),
+      locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child!,
+        );
+      },
+      home: const LoginStatusChecker(),
+      routes: {
+        '/home': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return MyHomePage(apiKey: args['apiKey']);
+        },
+      },
+    );
+  }
+
+  TextTheme _createTextTheme() {
+    return TextTheme(
+      displayLarge: GoogleFonts.tajawal(),
+      displayMedium: GoogleFonts.tajawal(),
+      displaySmall: GoogleFonts.tajawal(),
+      headlineLarge: GoogleFonts.tajawal(),
+      headlineMedium: GoogleFonts.tajawal(),
+      headlineSmall: GoogleFonts.tajawal(),
+      titleLarge: GoogleFonts.tajawal(),
+      titleMedium: GoogleFonts.tajawal(),
+      titleSmall: GoogleFonts.tajawal(),
+      bodyLarge: GoogleFonts.tajawal(),
+      bodyMedium: GoogleFonts.tajawal(),
+      bodySmall: GoogleFonts.tajawal(),
+      labelLarge: GoogleFonts.tajawal(),
+      labelMedium: GoogleFonts.tajawal(),
+      labelSmall: GoogleFonts.tajawal(),
+    ).apply(
+      bodyColor: Colors.black,
+      displayColor: Colors.black,
+    );
+  }
+}
+
+class LoginStatusChecker extends StatefulWidget {
+  const LoginStatusChecker({super.key});
+
+  @override
+  State<LoginStatusChecker> createState() => _LoginStatusCheckerState();
+}
+
+class _LoginStatusCheckerState extends State<LoginStatusChecker> {
+  bool _isLoggedIn = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwtToken = prefs.getString('jwt_token');
       setState(() {
-        location = 'Location services are disabled.';
+        _isLoggedIn = jwtToken != null && jwtToken.isNotEmpty;
+        _isLoading = false;
       });
-      return;
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint("Login status check error: $e");
     }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        setState(() {
-          location = 'Location permissions are denied';
-        });
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      setState(() {
-        location =
-            'Location permissions are permanently denied. Please enable them from settings.';
-      });
-      return;
-    }
-
-    Position pos = await Geolocator.getCurrentPosition();
-    setState(() {
-      location = 'Lat: ${pos.latitude}, Lon: ${pos.longitude}';
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Location with Permission')),
-      body: Center(child: Text(location)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: getLocation,
-        child: const Icon(Icons.location_on),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: kPrimaryColor))
+          : _isLoggedIn
+              ? const ApiKeyLoader()
+              : LoginPage(onLoginSuccess: _handleLoginSuccess),
+    );
+  }
+
+  void _handleLoginSuccess() {
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = true;
+        _isLoading = false;
+      });
+    }
+  }
+}
+
+class ApiKeyLoader extends StatefulWidget {
+  const ApiKeyLoader({super.key});
+
+  @override
+  State<ApiKeyLoader> createState() => _ApiKeyLoaderState();
+}
+
+class _ApiKeyLoaderState extends State<ApiKeyLoader> {
+  String? _apiKey;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchApiKey();
+  }
+
+  Future<void> _fetchApiKey() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      final key = await fetchMagicLaneApiKey();
+      if (key != null) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {'apiKey': key},
+        );
+      } else {
+        _setErrorState('تعذر الحصول على مفتاح API: لا يوجد رمز JWT مخزن');
+      }
+    } catch (e) {
+      _setErrorState('$kApiKeyFetchFailed: $e');
+    }
+  }
+
+  void _setErrorState(String message) {
+    if (mounted) {
+      setState(() {
+        _errorMessage = message;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+      );
+    }
+    
+    return Scaffold(
+      body: Center(
+        child: _errorMessage != null
+            ? ErrorRetryWidget(
+                message: _errorMessage!,
+                onRetry: _fetchApiKey,
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class ErrorRetryWidget extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const ErrorRetryWidget({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(message, style: const TextStyle(fontSize: 18)),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: onRetry,
+          child: const Text('إعادة المحاولة'),
+        ),
+      ],
+    );
+  }
+}
+
+Future<String?> fetchMagicLaneApiKey() async {
+  final prefs = await SharedPreferences.getInstance();
+  final jwtToken = prefs.getString('jwt_token');
+  if (jwtToken == null || jwtToken.isEmpty) return null;
+
+  for (int attempt = 0; attempt < kMaxApiRetries; attempt++) {
+    try {
+      final response = await http.get(
+        Uri.parse(kApiKeyEndpoint),
+        headers: {'Authorization': jwtToken},
+      ).timeout(kApiTimeout);
+
+      if (response.statusCode == 200) {
+        return response.body.trim();
+      }
+      debugPrint('API key fetch failed: ${response.statusCode}');
+    } catch (e) {
+      debugPrint('API key fetch error: $e');
+    }
+    await Future.delayed(const Duration(seconds: 2));
+  }
+  return null;
+}
+
+class MyHomePage extends StatefulWidget {
+  final String apiKey;
+  
+  const MyHomePage({super.key, required this.apiKey});
+  
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  // Map & Navigation Controllers
+  gem.GemMapController? _mapController;
+  gem.TaskHandler? _routingHandler;
+  gem.TaskHandler? _navigationHandler;
+
+  // Location & Route State
+  Position? _currentPosition;
+  gem.Coordinates? _destinationCoords;
+  gem.Route? _currentRoute;
+  gem.TimeDistance? _currentTimeDistance;
+  gem.TimeDistance? _remainingTimeDistance;
+  gem.NavigationInstruction? currentInstruction;
+
+  // UI State
+  bool _areRoutesBuilt = false;
+  bool _hasLiveDataSource = false;
+  bool _isSearching = false;
+  bool _isLoadingLocation = false;
+  bool _showRecenterButton = false;
+  bool _isFollowingPosition = false;
+  bool _logoLoaded = false;
+  bool _showArrivalMessage = false;
+  bool _isCalculatingRoute = false;
+  bool _isMapMovedByUser = false;
+  bool _isVoiceMuted = false;
+  bool _isOffline = false;
+
+  // Data
+  String? _destinationName;
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _searchResults = [];
+  
+  // Services
+  late FlutterTts _flutterTts;
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  StreamSubscription<Position>? _positionStream;
+
+  // Navigation Metrics
+  double _remainingDistance = 0.0;
+  int _remainingDuration = 0;
+  double _routeProgress = 0.0;
+  double _totalDistance = 0.0;
+  DateTime? _expectedArrivalTime;
+
+@override
+void initState() {
+  super.initState();
+  
+  // Initialize UI-dependent services only after widget is built
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _initializePlatformServices();
+    _getCurrentLocation();
+  });
+}
+
+  void _initializePlatformServices() {
+    try {
+      // Initialize TTS with platform-specific settings
+      _initTts();
+      
+      // Initialize connectivity monitoring
+      _initConnectivityListener();
+      
+      // Precache resources after UI is ready
+      _precacheResources();
+    } catch (e) {
+      debugPrint("Platform services initialization error: $e");
+    }
+  }
+
+  Future<void> _precacheResources() async {
+    try {
+      // Load app logo
+      await precacheImage(const AssetImage(kLogoAsset), context);
+      
+      // Update UI only if widget is still mounted
+      if (mounted) {
+        setState(() => _logoLoaded = true);
+      }
+      
+      // Preload map style if needed
+      await precacheImage(const AssetImage(kMapStyleAsset), context);
+      
+    } catch (e) {
+      // Just log the error but don't block the app from continuing
+      debugPrint("Resource preloading error: $e");
+      
+      // Still mark logo as loaded to avoid UI issues
+      if (mounted) {
+        setState(() => _logoLoaded = true);
+      }
+    }
+  }
+
+  Future<void> _initTts() async {
+    _flutterTts = FlutterTts();
+    try {
+      await _flutterTts.setLanguage(kArabicLanguageCode);
+      await _flutterTts.setSpeechRate(0.5);
+      
+      // Platform-specific TTS configurations
+      if (Platform.isAndroid) {
+        await _flutterTts.setEngine('com.google.android.tts');
+        await _flutterTts.setQueueMode(1); // Add to queue instead of interrupting
+      } else if (Platform.isIOS) {
+        await _flutterTts.setSharedInstance(true);
+        await _flutterTts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback, 
+          [IosTextToSpeechAudioCategoryOptions.defaultToSpeaker]
+        );
+      }
+      
+      // Event handlers
+      _flutterTts.setErrorHandler((msg) {
+        debugPrint("TTS Error: $msg");
+        // Only reinitialize if widget is still mounted
+        if (mounted) _initTts();
+      });
+    } catch (e) {
+      debugPrint("$kTtsInitializationFailed: $e");
+    }
+  }
+
+  void _initConnectivityListener() {
+    _connectivitySubscription = Connectivity()
+      .onConnectivityChanged
+      .listen((List<ConnectivityResult> results) {
+        if (!mounted) return;
+        setState(() => _isOffline = results.contains(ConnectivityResult.none));
+      });
+  }
+
+  @override
+  void dispose() {
+    _cleanupResources();
+    super.dispose();
+  }
+
+  void _cleanupResources() {
+    try {
+      _connectivitySubscription.cancel();
+      _positionStream?.cancel();
+      gem.RoutingService.cancelRoute(_routingHandler!);
+      gem.NavigationService.cancelNavigation(_navigationHandler);
+      _flutterTts.stop();
+      gem.GemKit.release();
+      WakelockPlus.disable();
+    } catch (e) {
+      debugPrint("Error during resource cleanup: $e");
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLoadingLocation = true);
+    
+    final status = await Permission.locationWhenInUse.request();
+    if (!status.isGranted) {
+      _setLocationError(kLocationPermissionDenied);
+      return;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      
+      setState(() {
+        _currentPosition = position;
+        _isLoadingLocation = false;
+      });
+      
+      _updateMapCenter(position);
+      _buildRouteIfDestinationExists();
+    } catch (e) {
+      _setLocationError('$kLocationFetchFailed: $e');
+    }
+  }
+
+  void _setLocationError(String message) {
+    if (!mounted) return;
+    setState(() => _isLoadingLocation = false);
+    _showSnackBar(message);
+  }
+
+  void _updateMapCenter(Position position) {
+    _mapController?.centerOnCoordinates(gem.Coordinates(
+      latitude: position.latitude,
+      longitude: position.longitude,
+    ));
+  }
+
+  void _buildRouteIfDestinationExists() {
+    if (_destinationCoords != null && !_areRoutesBuilt) {
+      _buildRoute(
+        gem.Landmark.withLatLng(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+        ),
+        gem.Landmark.withLatLng(
+          latitude: _destinationCoords!.latitude,
+          longitude: _destinationCoords!.longitude,
+        ),
+      );
+    }
+  }
+
+  Future<void> _startLocationTracking() async {
+    final status = await Permission.locationWhenInUse.request();
+    if (!status.isGranted) return;
+
+    try {
+      if (!_hasLiveDataSource) {
+        gem.PositionService.instance.setLiveDataSource();
+        _hasLiveDataSource = true;
+      }
+
+      _positionStream = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 5,
+        ),
+      ).listen((position) {
+        if (!mounted) return;
+        setState(() => _currentPosition = position);
+        _updateNavigationProgress();
+      });
+    } catch (e) {
+      _showSnackBar('تعذر تتبع الموقع: $e');
+    }
+  }
+
+  void _updateNavigationProgress() {
+    if (_currentRoute == null) return;
+
+    _remainingTimeDistance = _currentRoute!.getTimeDistance(activePart: true);
+    
+    setState(() {
+      _remainingDistance = _remainingTimeDistance!.totalDistanceM.toDouble();
+      _remainingDuration = _remainingTimeDistance!.totalTimeS;
+      _routeProgress = ((_totalDistance - _remainingDistance) / _totalDistance).clamp(0.0, 1.0);
+      _expectedArrivalTime = DateTime.now().add(Duration(seconds: _remainingDuration));
+      
+      // Check arrival
+      if (!_showArrivalMessage && _remainingDistance <= kArrivalThreshold) {
+        _handleArrival();
+      }
+    });
+  }
+
+  void _handleArrival() {
+    setState(() => _showArrivalMessage = true);
+    Future.delayed(const Duration(seconds: 10), _stopNavigation);
+  }
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) {
+      setState(() => _searchResults = []);
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$kSearchEndpoint?q=$query')
+      ).timeout(kApiTimeout);
+      
+      if (response.statusCode == 200) {
+        setState(() => _searchResults = json.decode(response.body));
+      } else {
+        throw Exception('فشل تحميل نتائج البحث');
+      }
+    } catch (e) {
+      _showSnackBar('$kSearchFailed: $e');
+    }
+  }
+
+  void _selectDestination(dynamic result) {
+    FocusScope.of(context).unfocus();
+    
+    setState(() {
+      _destinationName = result['firstname'];
+      _isSearching = false;
+      _searchController.clear();
+      _destinationCoords = gem.Coordinates(
+        latitude: result['latitude'],
+        longitude: result['longitude'],
+      );
+    });
+
+    if (_currentPosition != null) {
+      _buildRoute(
+        gem.Landmark.withLatLng(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+        ),
+        gem.Landmark.withLatLng(
+          latitude: result['latitude'],
+          longitude: result['longitude'],
+        ),
+      );
+    } else {
+      _showSnackBar('بانتظار الموقع الحالي...');
+      _getCurrentLocation();
+    }
+  }
+
+  void _buildRoute(gem.Landmark departure, gem.Landmark destination) {
+    final routePreferences = gem.RoutePreferences()
+      ..transportMode = gem.RouteTransportMode.car
+      ..routeType = gem.RouteType.fastest;
+      
+    setState(() => _isCalculatingRoute = true);
+    _showSnackBar('جاري حساب الطريق...', duration: const Duration(seconds: 3));
+
+    _mapController?.preferences.routes.clear();
+
+    _routingHandler = gem.RoutingService.calculateRoute(
+      [departure, destination],
+      routePreferences,
+      (err, routes) {
+        if (!mounted) return;
+        
+        setState(() => _isCalculatingRoute = false);
+        ScaffoldMessenger.of(context).clearSnackBars();
+
+        if (err == gem.GemError.success && routes != null && routes.isNotEmpty) {
+          _handleRouteSuccess(routes.first);
+        } else {
+          _handleRouteError(err);
+        }
+      },
+    );
+  }
+
+  void _handleRouteSuccess(gem.Route route) {
+    _currentRoute = route;
+    _currentTimeDistance = route.getTimeDistance(activePart: false);
+    _remainingTimeDistance = route.getTimeDistance(activePart: true);
+    
+    setState(() {
+      _areRoutesBuilt = true;
+      _totalDistance = _currentTimeDistance!.totalDistanceM.toDouble();
+      _remainingDistance = _remainingTimeDistance!.totalDistanceM.toDouble();
+      _remainingDuration = _remainingTimeDistance!.totalTimeS;
+      _expectedArrivalTime = DateTime.now().add(Duration(seconds: _remainingDuration));
+    });
+
+    _mapController!.preferences.routes
+      ..clear()
+      ..add(route, true, label: "طريق إلى $_destinationName");
+
+    _mapController!.centerOnRoutes(routes: [route]);
+    _logTrafficEvents(route);
+  }
+
+  void _logTrafficEvents(gem.Route route) {
+    for (final event in route.trafficEvents) {
+      debugPrint('Traffic Event: ${event.description}');
+    }
+  }
+
+  void _handleRouteError(gem.GemError? err) {
+    final errorMsg = err == gem.GemError.noRoute 
+        ? kNoRouteAvailable 
+        : kRouteCalculationFailed;
+        
+    _showSnackBar(errorMsg);
+    setState(() => _areRoutesBuilt = false);
+  }
+
+  void _onMapCreated(gem.GemMapController controller) {
+    _mapController = controller;
+    _configureSdkLanguage();
+    _setupMapCallbacks();
+    _centerMapIfPositionExists();
+  }
+
+  void _configureSdkLanguage() {
+    try {
+      final arabicLang = gem.SdkSettings.languageList
+          .firstWhere((lang) => lang.languagecode == 'ara');
+          
+      gem.SdkSettings.language = arabicLang;
+      gem.SdkSettings.setTTSLanguage(arabicLang);
+      gem.SdkSettings.mapLanguage = gem.MapLanguage.automaticLanguage;
+    } catch (e) {
+      debugPrint("Language configuration error: $e");
+    }
+    
+    gem.SoundPlayingService.canPlaySounds = !_isVoiceMuted;
+  }
+
+  void _setupMapCallbacks() {
+    _mapController?.registerMoveCallback((Point<num> from, Point<num> to) {
+      if (currentInstruction != null && mounted) {
+        setState(() {
+          _isMapMovedByUser = true;
+          _isFollowingPosition = false;
+        });
+      }
+    });
+  }
+
+  void _centerMapIfPositionExists() {
+    if (_currentPosition != null) {     
+      _mapController?.centerOnCoordinates(gem.Coordinates(
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+      ));
+    }
+  }
+
+  void _startNavigation() {
+    final mainRoute = _mapController?.preferences.routes.mainRoute;
+    if (mainRoute == null) {
+      _showSnackBar("لا يوجد طريق متاح");
+      return;
+    }
+
+    WakelockPlus.enable();
+    _startLocationTracking();
+    _mapController?.startFollowingPosition();
+    
+    setState(() {
+      _isFollowingPosition = true;
+      _showRecenterButton = false;
+      _isMapMovedByUser = false;
+    });
+
+    _navigationHandler = gem.NavigationService.startNavigation(
+      mainRoute,
+      null,
+      onNavigationInstruction: (instruction, events) {
+        if (!mounted) return;
+        setState(() => currentInstruction = instruction);
+      },
+      onTextToSpeechInstruction: (ttsInstruction) {
+        if (!_isVoiceMuted) _speak(ttsInstruction);
+      },
+      onError: (error) {
+        if (error != gem.GemError.cancel && mounted) {
+          _showSnackBar('$kNavigationFailed: $error');
+        }
+        _stopNavigation();
+      },
+    );
+    
+    _speak("ابدأ الملاحة نحو الوجهة");
+  }
+  
+  Future<bool> _speak(String text) async {
+    if (_isVoiceMuted) return false;
+    
+    try {
+      await _flutterTts.stop();
+      await _flutterTts.setVolume(1.0);
+      return await _flutterTts.speak(text) == 1;
+    } catch (e) {
+      debugPrint("TTS speak error: $e");
+      return false;
+    }
+  }
+
+  void _stopNavigation() {
+    if (!mounted) return;
+    
+    WakelockPlus.disable();
+    gem.NavigationService.cancelNavigation(_navigationHandler);
+    _positionStream?.cancel();
+    _flutterTts.stop();
+    
+    setState(() {
+      currentInstruction = null;
+      _remainingDistance = 0.0;
+      _remainingDuration = 0;
+      _routeProgress = 0.0;
+      _showRecenterButton = false;
+      _showArrivalMessage = false;
+      _isMapMovedByUser = false;
+      _expectedArrivalTime = null;
+    });
+    
+    _mapController?.stopFollowingPosition();
+  }
+
+  void _abandonDirections() {
+    _stopNavigation();
+    setState(() {
+      _areRoutesBuilt = false;
+      _destinationName = null;
+      _destinationCoords = null;
+      _currentRoute = null;
+      _currentTimeDistance = null;
+      _remainingTimeDistance = null;
+      _expectedArrivalTime = null;
+    });
+    _mapController?.preferences.routes.clear();
+  }
+
+  void _toggleVoiceMute() {
+    setState(() => _isVoiceMuted = !_isVoiceMuted);
+    gem.SoundPlayingService.canPlaySounds = !_isVoiceMuted;
+    
+    if (_isVoiceMuted) {
+      gem.SoundPlayingService.cancelNavigationSoundsPlaying();
+      _flutterTts.stop();
+    }
+  }
+
+  void _showSnackBar(String message, {Duration duration = const Duration(seconds: 3)}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: duration)
+    );
+  }
+
+  String _formatDistance(double meters) {
+    if (meters < 1000) {
+      return '${meters.toStringAsFixed(0)} م';
+    } else {
+      return '${(meters / 1000).toStringAsFixed(1)} كم';
+    }
+  }
+
+  String _formatTime(int seconds) {
+    if (seconds < 60) {
+      return '$seconds ثانية';
+    } else {
+      final minutes = seconds ~/ 60;
+      if (minutes < 60) {
+        return '$minutes دقيقة';
+      } else {
+        final hours = minutes ~/ 60;
+        final remainingMinutes = minutes % 60;
+        return '${hours}س ${remainingMinutes}د';
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isOffline) return const OfflineScreen();
+    
+    final isNavigating = currentInstruction != null;
+    final screenPadding = MediaQuery.of(context).padding;
+    final formattedETA = _expectedArrivalTime == null
+      ? '--:--'
+      : '${_expectedArrivalTime!.hour.toString().padLeft(2, '0')}:${_expectedArrivalTime!.minute.toString().padLeft(2, '0')}';
+    
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      body: Stack(
+        children: [
+          gem.GemMap(
+            key: const ValueKey("GemMap"),
+            onMapCreated: _onMapCreated,
+            appAuthorization: widget.apiKey,
+            initialMapStyleAsset: kMapStyleAsset,
+          ),
+          
+          if (!isNavigating)
+            Positioned(
+              top: screenPadding.top + 10,
+              right: 16,
+              left: 16,
+              child: _buildFloatingSearchBar(),
+            ),
+
+          if (isNavigating && currentInstruction != null && !_showArrivalMessage)
+            Positioned(
+              top: screenPadding.top + 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: NavigationInstructionPanel(
+                  instruction: currentInstruction!,
+                  isVoiceMuted: _isVoiceMuted,
+                  onToggleVoice: _toggleVoiceMute,
+                ),
+              ),
+            ),
+
+          if (_showArrivalMessage)
+            Positioned(
+              top: screenPadding.top + 20,
+              right: 0,
+              left: 0,
+              child: Center(
+                child: _buildArrivalMessage(),
+              ),
+            ),
+
+          if (_destinationName != null && !_isSearching && !isNavigating)
+            Positioned(
+              top: screenPadding.top + 70,
+              right: 16,
+              child: _buildDestinationChip(),
+            ),
+
+          if (_isSearching)
+            Positioned(
+              top: screenPadding.top + 70,
+              right: 0,
+              left: 0,
+              child: _buildSearchResults(),
+            ),
+
+          // Bottom Navigation Panel
+          if (isNavigating)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              left: 0,
+              child: NavigationBottomPanel(
+                destinationName: "طريق إلى $_destinationName",
+                remainingDistance: _formatDistance(_remainingDistance),
+                remainingDuration: _formatTime(_remainingDuration),
+                expectedArrivalTime: formattedETA,
+                progress: _routeProgress,
+                isVoiceMuted: _isVoiceMuted,
+                onToggleVoice: _toggleVoiceMute,
+                onExit: _abandonDirections,
+              ),
+            ),
+
+          // Recenter Button
+          if (isNavigating && _isMapMovedByUser)
+            Positioned(
+              top: 140,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ElevatedButton(
+                  onPressed: _recenterMap,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('إعادة تمركز الخريطة'),
+                ),
+              ),
+            ),
+
+          // Start Navigation Button
+          if (_areRoutesBuilt && !isNavigating && !_isSearching)
+            Positioned(
+              bottom: screenPadding.bottom + 100,
+              right: 0,
+              left: 0,
+              child: Center(
+                child: FloatingActionButton.extended(
+                  backgroundColor: kPrimaryColor,
+                  icon: const Icon(Icons.directions, color: Colors.white),
+                  label: const Text('ابدأ', style: TextStyle(color: Colors.white)),
+                  onPressed: _startNavigation,
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: _buildFloatingActionButton(),
+      resizeToAvoidBottomInset: false,
+    );
+  }
+
+  void _recenterMap() {
+    _mapController?.startFollowingPosition();
+    setState(() {
+      _isMapMovedByUser = false;
+      _isFollowingPosition = true;
+    });
+  }
+
+  Widget _buildArrivalMessage() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.check_circle, color: Colors.white, size: 30),
+            SizedBox(width: 12),
+            Text(
+              'وصلت الى وجهتك',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingSearchBar() {
+    return Hero(
+      tag: 'searchbar',
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12, left: 8),
+                    child: Container(
+                      height: 36,
+                      width: 36,
+                      decoration: BoxDecoration(
+                        color: _logoLoaded ? Colors.transparent : kPrimaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: _logoLoaded
+                          ? Image.asset(kLogoAsset, fit: BoxFit.cover)
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: _isSearching,
+                      textDirection: TextDirection.rtl,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(CupertinoIcons.search, color: Colors.grey),
+                        hintText: 'البحث',
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      onChanged: _performSearch,
+                      onTap: () => setState(() => _isSearching = true),
+                    ),
+                  ),
+                  if (!_isSearching && _areRoutesBuilt)
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: _abandonDirections,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        )
+    )
+  );
+  }
+
+  Widget _buildDestinationChip() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: _isCalculatingRoute
+            ? _buildRouteCalculationIndicator()
+            : _areRoutesBuilt
+                ? _buildRouteInfo()
+                : _buildRouteError(),
+      ),
+    );
+  }
+
+  // Fix _buildRouteCalculationIndicator method
+  Widget _buildRouteCalculationIndicator() {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(kPrimaryColor),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          "جاري حساب الطريق",
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: kPrimaryColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteInfo() {
+    return Row(
+      children: [
+        Text(
+          "الطريق إلى $_destinationName",
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Icon(Icons.route, color: Colors.green),
+      ],
+    );
+  }
+
+  // Fix _buildRouteError method
+  Widget _buildRouteError() {
+    return Row(
+      children: [
+        Text(
+          "لا يوجد طريق متاح",
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Icon(Icons.warning, color: Colors.orange),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchResults.isEmpty) return Container();
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        height: MediaQuery.of(context).size.height * 0.5,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: ListView.builder(
+          padding: const EdgeInsets.only(top: 8),
+          itemCount: _searchResults.length,
+          itemBuilder: (context, index) {
+            final result = _searchResults[index];
+            return ListTile(
+              leading: const Icon(Icons.location_on, color: kPrimaryColor),
+              title: Text(result['firstname'] ?? 'Unknown', textDirection: TextDirection.rtl),
+              subtitle: Text(
+                "${result['street']}, ${result['area']}, ${result['governorate']}",
+                overflow: TextOverflow.ellipsis,
+                textDirection: TextDirection.rtl,
+              ),
+              onTap: () => _selectDestination(result),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    final shouldHide = currentInstruction != null || 
+                      _isSearching || 
+                      (_areRoutesBuilt && !_isSearching);
+                      
+    return shouldHide 
+        ? null 
+        : FloatingActionButton(
+            backgroundColor: kPrimaryColor,
+            onPressed: _getCurrentLocation,
+            child: const Icon(Icons.my_location, color: Colors.white),
+          );
+  }
+}
+
+class OfflineScreen extends StatelessWidget {
+  const OfflineScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: Container(
+          color: Colors.white,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.signal_wifi_off, size: 120, color: Colors.redAccent),
+              SizedBox(height: 20),
+              Text(
+                kConnectivityLost,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.redAccent,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.',
+                style: TextStyle(fontSize: 18, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class NavigationInstructionPanel extends StatefulWidget {
+  final gem.NavigationInstruction instruction;
+  final bool isVoiceMuted;
+  final VoidCallback onToggleVoice;
+
+  const NavigationInstructionPanel({
+    super.key,
+    required this.instruction,
+    required this.isVoiceMuted,
+    required this.onToggleVoice,
+  });
+
+  @override
+  State<NavigationInstructionPanel> createState() => _NavigationInstructionPanelState();
+}
+
+class _NavigationInstructionPanelState extends State<NavigationInstructionPanel> {
+  gem.NavigationInstruction? _previousInstruction;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousInstruction = widget.instruction;
+  }
+
+  @override
+  void didUpdateWidget(covariant NavigationInstructionPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_imagesEqual(widget.instruction, oldWidget.instruction)) {
+      setState(() => _previousInstruction = widget.instruction);
+    }
+  }
+
+  bool _imagesEqual(gem.NavigationInstruction a, gem.NavigationInstruction b) {
+    final imgA = a.nextNextTurnImg?.getRenderableImage()?.bytes;
+    final imgB = b.nextNextTurnImg?.getRenderableImage()?.bytes;
+    return imgA != null && imgB != null && 
+        const ListEquality().equals(imgA, imgB);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final instructionText = widget.instruction.nextTurnInstruction ?? 'تابع للأمام';
+    final imageBytes = widget.instruction.nextNextTurnImg?.getRenderableImage()?.bytes;
+    
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.85
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    widget.isVoiceMuted ? Icons.volume_off : Icons.volume_up,
+                    color: widget.isVoiceMuted ? Colors.grey : kPrimaryColor,
+                  ),
+                  onPressed: widget.onToggleVoice,
+                ),
+                Expanded(
+                  child: Text(
+                    instructionText,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    textDirection: TextDirection.rtl,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: kPrimaryColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: imageBytes != null
+                      ? Image.memory(
+                          imageBytes,
+                          width: 30,
+                          height: 30,
+                          gaplessPlayback: true,
+                        )
+                      : const Icon(Icons.navigation, size: 30, color: Colors.white),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class NavigationBottomPanel extends StatelessWidget {
+  final String destinationName;
+  final String remainingDistance;
+  final String remainingDuration;
+  final String expectedArrivalTime;
+  final double progress;
+  final bool isVoiceMuted;
+  final VoidCallback onToggleVoice;
+  final VoidCallback onExit;
+
+  const NavigationBottomPanel({
+    super.key,
+    required this.destinationName,
+    required this.remainingDistance,
+    required this.remainingDuration,
+    required this.expectedArrivalTime,
+    required this.progress,
+    required this.isVoiceMuted,
+    required this.onToggleVoice,
+    required this.onExit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(25),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          children: [
+            Text(
+              destinationName,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kPrimaryColor,
+              ),
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildInfoItem(Icons.alt_route, 'المسافة', remainingDistance),
+                _buildInfoItem(Icons.access_time, 'الوقت', remainingDuration),
+                _buildInfoItem(Icons.timer, 'وقت الوصول المتوقع', expectedArrivalTime),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[300],
+              valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _buildVoiceButton(),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildExitButton(),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String title, String value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: kPrimaryColor, size: 24),
+        const SizedBox(height: 4),
+        Text(title, style: TextStyle(color: Colors.grey[700]), textDirection: TextDirection.rtl),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textDirection: TextDirection.rtl),
+      ],
+    );
+  }
+  
+  Widget _buildVoiceButton() {
+    return GestureDetector(
+      onTap: onToggleVoice,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isVoiceMuted ? Colors.grey[200] : kPrimaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              isVoiceMuted ? Icons.volume_off : Icons.volume_up,
+              color: isVoiceMuted ? Colors.grey : kPrimaryColor,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isVoiceMuted ? 'كتم' : 'صوت',
+              style: TextStyle(
+                color: isVoiceMuted ? Colors.grey : kPrimaryColor,
+                fontSize: 14,
+              ),
+              textDirection: TextDirection.rtl,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildExitButton() {
+    return GestureDetector(
+      onTap: onExit,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.close, color: Colors.red, size: 24),
+            const SizedBox(height: 4),
+            const Text(
+              'خروج',
+              style: TextStyle(color: Colors.red, fontSize: 14),
+              textDirection: TextDirection.rtl,
+            ),
+          ],
+        ),
       ),
     );
   }
