@@ -611,7 +611,7 @@ void initState() {
       }
       
     } catch (e) {
-      debugPrint("iOS Arabic TTS setup failed: $e");
+      _showSnackBar("iOS Arabic TTS setup failed: $e");
       await _reinitializeTtsForIOS();
     }
   }
