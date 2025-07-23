@@ -483,36 +483,26 @@ void initState() {
   Future<void> _initTts() async {
     _flutterTts = FlutterTts();
     try {
-      await _flutterTts.setLanguage(kArabicLanguageCode);
-      await _flutterTts.setSpeechRate(0.5);
-      
       // Platform-specific TTS configurations
       if (Platform.isAndroid) {
+        await _flutterTts.setLanguage(kArabicLanguageCode);
+        await _flutterTts.setSpeechRate(0.5);
         await _flutterTts.setEngine('com.google.android.tts');
         await _flutterTts.setQueueMode(1); // Add to queue instead of interrupting
       } else if (Platform.isIOS) {
-        await _flutterTts.setSharedInstance(true);
-        await _flutterTts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.playAndRecord, 
-          [
-            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-            IosTextToSpeechAudioCategoryOptions.allowAirPlay,
-            IosTextToSpeechAudioCategoryOptions.duckOthers
-          ]
-        );
-        // Set iOS audio session for navigation
-        await _flutterTts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.playback,
-          [IosTextToSpeechAudioCategoryOptions.defaultToSpeaker]
-        );
+        // Enhanced iOS Arabic TTS setup
+        await _setupiOSArabicTts();
       }
       
-      // Event handlers
+      // Event handlers with better error recovery
       _flutterTts.setErrorHandler((msg) {
         debugPrint("TTS Error: $msg");
-        // Only reinitialize if widget is still mounted
-        if (mounted) _initTts();
+        // Only reinitialize if widget is still mounted and error is recoverable
+        if (mounted && !msg.contains("AVAudioSession")) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) _initTts();
+          });
+        }
       });
       
       _flutterTts.setCompletionHandler(() {
@@ -525,6 +515,172 @@ void initState() {
       
     } catch (e) {
       debugPrint("$kTtsInitializationFailed: $e");
+      // Try alternative initialization for iOS
+      if (Platform.isIOS) {
+        await _reinitializeTtsForIOS();
+      }
+    }
+  }
+  
+  // Enhanced iOS Arabic TTS setup
+  Future<void> _setupiOSArabicTts() async {
+    try {
+      // Set shared instance first
+      await _flutterTts.setSharedInstance(true);
+      
+      // Configure audio session for iOS
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.duckOthers,
+        ],
+        IosTextToSpeechAudioMode.spokenAudio,
+      );
+      
+      // Get available voices and languages
+      var voices = await _flutterTts.getVoices;
+      var languages = await _flutterTts.getLanguages;
+      
+      debugPrint("Available TTS languages: $languages");
+      debugPrint("Available TTS voices: ${voices.length} voices found");
+      
+      // Try to find Arabic voices
+      List<String> arabicLanguageCodes = [
+        'ar-SA', 'ar', 'ar-AE', 'ar-EG', 'ar-JO', 'ar-KW', 'ar-LB', 'ar-QA'
+      ];
+      
+      String? selectedLanguage;
+      Map<String, dynamic>? selectedVoice;
+      
+      // First try to find Arabic voices
+      for (var voice in voices) {
+        String? voiceLocale = voice['locale']?.toString().toLowerCase();
+        if (voiceLocale != null && voiceLocale.startsWith('ar')) {
+          selectedVoice = voice;
+          selectedLanguage = voice['locale'];
+          debugPrint("Found Arabic voice: ${voice['name']} (${voice['locale']})");
+          break;
+        }
+      }
+      
+      // If no Arabic voice found, check languages
+      if (selectedLanguage == null) {
+        for (String langCode in arabicLanguageCodes) {
+          var isAvailable = await _flutterTts.isLanguageAvailable(langCode);
+          if (isAvailable) {
+            selectedLanguage = langCode;
+            debugPrint("Found Arabic language support: $langCode");
+            break;
+          }
+        }
+      }
+      
+      if (selectedLanguage != null) {
+        // Set the Arabic language
+        await _flutterTts.setLanguage(selectedLanguage);
+        
+        // If we found a specific voice, set it
+        if (selectedVoice != null) {
+          await _flutterTts.setVoice({
+            "name": selectedVoice['name'],
+            "locale": selectedVoice['locale']
+          });
+          debugPrint("Set Arabic voice: ${selectedVoice['name']}");
+        }
+        
+        // Configure speech parameters
+        await _flutterTts.setSpeechRate(0.5);
+        await _flutterTts.setPitch(1.0);
+        await _flutterTts.setVolume(1.0);
+        
+        // Test Arabic TTS
+        bool testResult = await _testArabicTts();
+        if (!testResult) {
+          debugPrint("Arabic TTS test failed, trying fallback setup");
+          await _reinitializeTtsForIOS();
+        } else {
+          debugPrint("Arabic TTS successfully configured on iOS");
+        }
+      } else {
+        debugPrint("No Arabic TTS support found on iOS, using fallback");
+        await _reinitializeTtsForIOS();
+      }
+      
+    } catch (e) {
+      debugPrint("iOS Arabic TTS setup failed: $e");
+      await _reinitializeTtsForIOS();
+    }
+  }
+  
+  // Test Arabic TTS functionality
+  Future<bool> _testArabicTts() async {
+    try {
+      // Test with a simple Arabic phrase
+      int result = await _flutterTts.speak("تجربة").timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => 0,
+      );
+      
+      // Wait a moment for the speech to start
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _flutterTts.stop();
+      
+      return result == 1;
+    } catch (e) {
+      debugPrint("Arabic TTS test error: $e");
+      return false;
+    }
+  }
+  
+  // Enhanced iOS TTS fallback
+  Future<void> _reinitializeTtsForIOS() async {
+    try {
+      debugPrint("Attempting iOS TTS fallback initialization");
+      
+      // Reset TTS instance
+      await _flutterTts.stop();
+      _flutterTts = FlutterTts();
+      
+      // Try with shared instance disabled
+      await _flutterTts.setSharedInstance(false);
+      
+      // Minimal audio category setup
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.ambient,
+        [],
+        IosTextToSpeechAudioMode.defaultMode,
+      );
+      
+      // Try different Arabic language codes
+      List<String> fallbackLanguages = ['ar-SA', 'ar', 'en-US'];
+      bool languageSet = false;
+      
+      for (String lang in fallbackLanguages) {
+        try {
+          var isAvailable = await _flutterTts.isLanguageAvailable(lang);
+          if (isAvailable) {
+            await _flutterTts.setLanguage(lang);
+            await _flutterTts.setSpeechRate(0.5);
+            await _flutterTts.setVolume(1.0);
+            
+            debugPrint("iOS TTS fallback set to: $lang");
+            languageSet = true;
+            break;
+          }
+        } catch (e) {
+          debugPrint("Failed to set language $lang: $e");
+          continue;
+        }
+      }
+      
+      if (!languageSet) {
+        debugPrint("iOS TTS fallback: No suitable language found");
+      }
+      
+    } catch (e) {
+      debugPrint("iOS TTS fallback initialization failed: $e");
     }
   }
 
@@ -1050,11 +1206,79 @@ void initState() {
     if (_isVoiceMuted) return false;
     
     try {
+      // Stop any ongoing speech first
       await _flutterTts.stop();
-      await _flutterTts.setVolume(1.0);
-      return await _flutterTts.speak(text) == 1;
+      
+      // Platform-specific volume and speech handling
+      if (Platform.isIOS) {
+        // For iOS, ensure audio session is active and volume is set
+        await _flutterTts.setVolume(1.0);
+        
+        // Check current language setting
+        var currentLanguage = await _flutterTts.getDefaultEngine;
+        debugPrint("Current TTS language/engine: $currentLanguage");
+        
+        // Verify Arabic is still available before speaking
+        var isArabicAvailable = await _flutterTts.isLanguageAvailable('ar-SA');
+        if (!isArabicAvailable) {
+          // Try to re-setup Arabic TTS
+          debugPrint("Arabic TTS not available, attempting to re-setup");
+          await _setupiOSArabicTts();
+          
+          // If still not available, check if we can use any Arabic variant
+          isArabicAvailable = await _flutterTts.isLanguageAvailable('ar');
+          if (!isArabicAvailable) {
+            debugPrint("No Arabic TTS available, using fallback message");
+            // Use a simple fallback for critical navigation instructions
+            if (text.contains('اتجه') || text.contains('انعطف') || text.contains('استمر')) {
+              text = "Navigation instruction";
+              await _flutterTts.setLanguage("en-US");
+            }
+          }
+        }
+        
+        // iOS sometimes needs a small delay before speaking
+        await Future.delayed(const Duration(milliseconds: 100));
+      } else {
+        await _flutterTts.setVolume(1.0);
+      }
+      
+      // Attempt to speak
+      int result = await _flutterTts.speak(text).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => 0,
+      );
+      bool success = result == 1;
+      
+      // iOS-specific retry logic
+      if (!success && Platform.isIOS) {
+        debugPrint("iOS TTS speak failed, attempting recovery");
+        await _reinitializeTtsForIOS();
+        
+        // Retry once with fallback
+        await Future.delayed(const Duration(milliseconds: 200));
+        result = await _flutterTts.speak(text).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => 0,
+        );
+        success = result == 1;
+        
+        if (!success) {
+          debugPrint("iOS TTS retry also failed");
+        }
+      }
+      
+      return success;
     } catch (e) {
       debugPrint("TTS speak error: $e");
+      
+      // Auto-recovery for iOS
+      if (Platform.isIOS && mounted) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) _setupiOSArabicTts();
+        });
+      }
+      
       return false;
     }
   }
@@ -1174,6 +1398,7 @@ void initState() {
                   instruction: currentInstruction!,
                   isVoiceMuted: _isVoiceMuted,
                   onToggleVoice: _toggleVoiceMute,
+                  expectedArrivalTime: formattedETA, // Add ETA to top panel
                 ),
               ),
             ),
@@ -1213,7 +1438,6 @@ void initState() {
                 destinationName: "طريق إلى $_destinationName",
                 remainingDistance: _formatDistance(_remainingDistance),
                 remainingDuration: _formatTime(_remainingDuration),
-                expectedArrivalTime: formattedETA,
                 progress: _routeProgress,
                 isVoiceMuted: _isVoiceMuted,
                 onToggleVoice: _toggleVoiceMute,
@@ -1356,9 +1580,9 @@ void initState() {
               ),
             ),
           ),
-        )
-    )
-  );
+        ),
+      ),
+    );
   }
 
   Widget _buildDestinationChip() {
@@ -1531,12 +1755,14 @@ class NavigationInstructionPanel extends StatefulWidget {
   final gem.NavigationInstruction instruction;
   final bool isVoiceMuted;
   final VoidCallback onToggleVoice;
+  final String expectedArrivalTime; // Add ETA parameter
 
   const NavigationInstructionPanel({
     super.key,
     required this.instruction,
     required this.isVoiceMuted,
     required this.onToggleVoice,
+    required this.expectedArrivalTime, // Add ETA parameter
   });
 
   @override
@@ -1625,7 +1851,31 @@ class _NavigationInstructionPanelState extends State<NavigationInstructionPanel>
                 ),
               ],
             ),
+            // Add ETA display in top panel
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: kPrimaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.access_time, color: kPrimaryColor, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    'وقت الوصول المتوقع: ${widget.expectedArrivalTime}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: kPrimaryColor,
+                    ),
+                    textDirection: TextDirection.rtl,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1637,7 +1887,6 @@ class NavigationBottomPanel extends StatelessWidget {
   final String destinationName;
   final String remainingDistance;
   final String remainingDuration;
-  final String expectedArrivalTime;
   final double progress;
   final bool isVoiceMuted;
   final VoidCallback onToggleVoice;
@@ -1648,7 +1897,6 @@ class NavigationBottomPanel extends StatelessWidget {
     required this.destinationName,
     required this.remainingDistance,
     required this.remainingDuration,
-    required this.expectedArrivalTime,
     required this.progress,
     required this.isVoiceMuted,
     required this.onToggleVoice,
@@ -1660,52 +1908,67 @@ class NavigationBottomPanel extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Reduced vertical margin
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(20), // Slightly reduced border radius
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Reduced padding
         child: Column(
+          mainAxisSize: MainAxisSize.min, // Ensure minimal height
           children: [
             Text(
               destinationName,
-              style: TextStyle(
-                fontSize: 18,
+              style: const TextStyle(
+                fontSize: 16, // Slightly smaller font
                 fontWeight: FontWeight.bold,
                 color: kPrimaryColor,
               ),
               textDirection: TextDirection.rtl,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Reduced spacing
+            // Reorganized info row with only distance and duration
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildInfoItem(Icons.alt_route, 'المسافة', remainingDistance),
-                _buildInfoItem(Icons.access_time, 'الوقت', remainingDuration),
-                _buildInfoItem(Icons.timer, 'وقت الوصول المتوقع', expectedArrivalTime),
+                // Distance and Duration in a compact layout
+                Expanded(
+                  flex: 2,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildCompactInfoItem(Icons.alt_route, remainingDistance),
+                      _buildCompactInfoItem(Icons.access_time, remainingDuration),
+                    ],
+                  ),
+                ),
+                // Voice and Exit buttons on the right side
+                Expanded(
+                  flex: 1,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildCompactButton(
+                        icon: isVoiceMuted ? Icons.volume_off : Icons.volume_up,
+                        color: isVoiceMuted ? Colors.grey : kPrimaryColor,
+                        onTap: onToggleVoice,
+                      ),
+                      _buildCompactButton(
+                        icon: Icons.close,
+                        color: Colors.red,
+                        onTap: onExit,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8), // Reduced spacing
             LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.grey[300],
               valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryColor),
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: _buildVoiceButton(),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildExitButton(),
-                ),
-              ],
+              minHeight: 6, // Slightly thinner progress bar
+              borderRadius: BorderRadius.circular(3),
             ),
           ],
         ),
@@ -1713,71 +1976,41 @@ class NavigationBottomPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String title, String value) {
+  Widget _buildCompactInfoItem(IconData icon, String value) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: kPrimaryColor, size: 24),
-        const SizedBox(height: 4),
-        Text(title, style: TextStyle(color: Colors.grey[700]), textDirection: TextDirection.rtl),
+        Icon(icon, color: kPrimaryColor, size: 20), // Smaller icon
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textDirection: TextDirection.rtl),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14, // Smaller font
+            fontWeight: FontWeight.bold,
+          ),
+          textDirection: TextDirection.rtl,
+        ),
       ],
     );
   }
   
-  Widget _buildVoiceButton() {
+  Widget _buildCompactButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: onToggleVoice,
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8),
-        alignment: Alignment.center,
+        padding: const EdgeInsets.all(8), // Compact padding
         decoration: BoxDecoration(
-          color: isVoiceMuted ? Colors.grey[200] : kPrimaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          children: [
-            Icon(
-              isVoiceMuted ? Icons.volume_off : Icons.volume_up,
-              color: isVoiceMuted ? Colors.grey : kPrimaryColor,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isVoiceMuted ? 'كتم' : 'صوت',
-              style: TextStyle(
-                color: isVoiceMuted ? Colors.grey : kPrimaryColor,
-                fontSize: 14,
-              ),
-              textDirection: TextDirection.rtl,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildExitButton() {
-    return GestureDetector(
-      onTap: onExit,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          children: [
-            const Icon(Icons.close, color: Colors.red, size: 24),
-            const SizedBox(height: 4),
-            const Text(
-              'خروج',
-              style: TextStyle(color: Colors.red, fontSize: 14),
-              textDirection: TextDirection.rtl,
-            ),
-          ],
+        child: Icon(
+          icon,
+          color: color,
+          size: 20, // Smaller icon size
         ),
       ),
     );
