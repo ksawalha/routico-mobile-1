@@ -68,9 +68,6 @@ void main() async {
 
 Future<void> initializeCoreSdks() async {
   try {
-    // Initialize GemKit SDK
-    await gem.GemKit.initialize(appAuthorization: "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJlZTkyMWMwYi05ODAyLTRhZWEtODI3OS1hYjJkNzBhY2Q1MzkiLCJleHAiOjE4MDY1MjY4MDAsImlzcyI6Ik1hZ2ljIExhbmUiLCJqdGkiOiJkM2UzNTk5Yy1iNWFjLTRmNWItODM3ZS1jYTIwMDk1NDkzNTMifQ.K1Vv4sxZ30fLxvNaEl6uFB5Q4imU1CdeAuMhEKyE2ThqALUMmqbCqsREgHqSWANPsXOjXPwchwJujXqU90-WZw");
-    
     // Properly initialize OneSignal with better error handling
     await _initializeOneSignal();
     
@@ -87,14 +84,15 @@ Future<void> initializeCoreSdks() async {
 
 Future<void> _initializeOneSignal() async {
   try {
-    // Initialize OneSignal with proper configuration
-    OneSignal.initialize(kOneSignalAppId);
-    
-    // Configure based on platform
     if (Platform.isAndroid) {
+      OneSignal.initialize(kOneSignalAppId);
       await OneSignal.User.pushSubscription.optIn();
     }
-    
+    if (Platform.isIOS) {
+      await Future.delayed(Duration(seconds: 2));
+      OneSignal.initialize(kOneSignalAppId);
+      await OneSignal.User.pushSubscription.optIn();
+    }
     // Log success for debugging
     debugPrint("OneSignal successfully initialized");
   } catch (e) {
@@ -278,6 +276,7 @@ class _ApiKeyLoaderState extends State<ApiKeyLoader> {
     try {
       final key = await fetchMagicLaneApiKey();
       if (key != null) {
+        gem.GemKit.initialize(appAuthorization: key);
         Navigator.pushReplacementNamed(
           context,
           '/home',
@@ -482,213 +481,86 @@ void initState() {
   Future<void> _initTts() async {
     _isFirstSpeech = true;
     _flutterTts = FlutterTts();
+    
+    // Set up TTS handlers like the official example
+    _flutterTts.setStartHandler(() {
+      debugPrint("TTS started");
+    });
+
+    _flutterTts.setCompletionHandler(() {
+      debugPrint("TTS completed");
+    });
+
+    _flutterTts.setCancelHandler(() {
+      debugPrint("TTS cancelled");
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      debugPrint("TTS error: $msg");
+    });
+    
+    // Platform-specific initialization
+    if (Platform.isAndroid) {
+      await _setupAndroidTts();
+    } else if (Platform.isIOS) {
+      await _setupIosTts();
+    }
+    
+    setState(() => _isTtsInitialized = true);
+  }
+
+  Future<void> _setupAndroidTts() async {
     try {
-      // Platform-specific TTS configurations
-      if (Platform.isAndroid) {
-        await _flutterTts.setLanguage(kArabicLanguageCode);
-        await _flutterTts.setSpeechRate(0.5);
-        await _flutterTts.setEngine('com.google.android.tts');
-        await _flutterTts.setQueueMode(1); // Add to queue instead of interrupting
-      } else if (Platform.isIOS) {
-        // Enhanced iOS Arabic TTS setup
-        await _setupiOSArabicTts();
-      }
-      
-      // Event handlers with better error recovery
-      _flutterTts.setErrorHandler((msg) {
-        debugPrint("TTS Error: $msg");
-        // Only reinitialize if widget is still mounted and error is recoverable
-        if (mounted && !msg.contains("AVAudioSession")) {
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) _initTts();
-          });
-        }
-      });
-      
-      _flutterTts.setCompletionHandler(() {
-        debugPrint("TTS completed successfully");
-      });
-      
-      _flutterTts.setStartHandler(() {
-        debugPrint("TTS started");
-      });
-      
-      setState(() => _isTtsInitialized = true);
+      await _flutterTts.setLanguage(kArabicLanguageCode);
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setEngine('com.google.android.tts');
+      await _flutterTts.setQueueMode(1);
     } catch (e) {
-      debugPrint("$kTtsInitializationFailed: $e");
-      // Try alternative initialization for iOS
-      if (Platform.isIOS) {
-        await _reinitializeTtsForIOS();
-      }
+      debugPrint("Android TTS setup error: $e");
     }
   }
-  
-  // Enhanced iOS Arabic TTS setup
-  Future<void> _setupiOSArabicTts() async {
+
+  Future<void> _setupIosTts() async {
     try {
-      // Set shared instance first
-      await _flutterTts.setSharedInstance(true);
-      
-      // Configure audio session for iOS
+      // Set audio session configuration
       await _flutterTts.setIosAudioCategory(
         IosTextToSpeechAudioCategory.playback,
         [
-          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
           IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.duckOthers,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
         ],
-        IosTextToSpeechAudioMode.spokenAudio,
       );
       
-      // Get available voices and languages
-      var voices = await _flutterTts.getVoices;
-      var languages = await _flutterTts.getLanguages;
+      // Set Arabic language
+      await _flutterTts.setLanguage(kArabicLanguageCode);
       
-      debugPrint("Available TTS languages: $languages");
-      debugPrint("Available TTS voices: ${voices?.length ?? 0} voices found");
+      // Set speech parameters
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setVolume(1.0);
       
-      // Try to find Arabic voices
-      List<String> arabicLanguageCodes = [
-        'ar-SA', 'ar', 'ar-AE', 'ar-EG', 'ar-JO', 'ar-KW', 'ar-LB', 'ar-QA'
-      ];
-      
-      String? selectedLanguage;
-      Map<String, dynamic>? selectedVoice;
-      
-      // First try to find Arabic voices
-      if (voices != null && voices is List) {
-        for (var voice in voices) {
-          try {
-            // Safely convert voice map to String-keyed map
-            final voiceMap = Map<String, dynamic>.from(voice as Map<dynamic, dynamic>);
-            
-            String? voiceLocale = voiceMap['locale']?.toString().toLowerCase();
-            if (voiceLocale != null && voiceLocale.startsWith('ar')) {
-              selectedVoice = voiceMap;
-              selectedLanguage = voiceMap['locale'];
-              debugPrint("Found Arabic voice: ${voiceMap['name']} (${voiceMap['locale']})");
-              break;
-            }
-          } catch (e) {
-            debugPrint("Error processing voice: $e");
-          }
-        }
-      }
-      
-      // If no Arabic voice found, check languages
-      if (selectedLanguage == null) {
-        for (String langCode in arabicLanguageCodes) {
-          try {
-            var isAvailable = await _flutterTts.isLanguageAvailable(langCode);
-            if (isAvailable) {
-              selectedLanguage = langCode;
-              debugPrint("Found Arabic language support: $langCode");
-              break;
-            }
-          } catch (e) {
-            debugPrint("Error checking language $langCode: $e");
-          }
-        }
-      }
-      
-      if (selectedLanguage != null) {
-        // Set the Arabic language
-        await _flutterTts.setLanguage(selectedLanguage);
-        
-        // If we found a specific voice, set it
-        if (selectedVoice != null) {
-          await _flutterTts.setVoice({
-            "name": selectedVoice['name'],
-            "locale": selectedVoice['locale']
-          });
-          debugPrint("Set Arabic voice: ${selectedVoice['name']}");
-        }
-        
-        // Configure speech parameters
-        await _flutterTts.setSpeechRate(0.5);
-        await _flutterTts.setPitch(1.0);
-        await _flutterTts.setVolume(1.0);
-        
-        // Warm up TTS engine
-        await _warmupTts();
-        
-        _showSnackBar("Arabic TTS initialized successfully");
-      } else {
-        _showSnackBar("Fell Back to default TTS settings for iOS");
-        await _reinitializeTtsForIOS();
-      }
-      
-    } catch (e) {
-      _showSnackBar("iOS Arabic TTS setup failed: $e");
-      await _reinitializeTtsForIOS();
-    }
-  }
-  
-  // Warm up TTS engine for more reliable first speech
-  Future<void> _warmupTts() async {
-    try {
-      if (Platform.isIOS) {
-        debugPrint("Warming up TTS engine...");
-        await _flutterTts.speak(" ");
-        await Future.delayed(const Duration(milliseconds: 100));
-        await _flutterTts.stop();
-        debugPrint("TTS warmup completed");
-      }
-    } catch (e) {
-      debugPrint("TTS warmup error: $e");
-    }
-  }
-  
-  // Enhanced iOS TTS fallback
-  Future<void> _reinitializeTtsForIOS() async {
-    try {
-      debugPrint("Attempting iOS TTS fallback initialization");
-      
-      // Reset TTS instance
-      await _flutterTts.stop();
-      _flutterTts = FlutterTts();
-      
-      // Try with shared instance disabled
-      await _flutterTts.setSharedInstance(false);
-      
-      // Minimal audio category setup
-      await _flutterTts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.ambient,
-        [],
-        IosTextToSpeechAudioMode.defaultMode,
-      );
-      
-      // Try different Arabic language codes
-      List<String> fallbackLanguages = ['ar-SA', 'ar', 'en-US'];
-      bool languageSet = false;
-      
-      for (String lang in fallbackLanguages) {
-        try {
-          var isAvailable = await _flutterTts.isLanguageAvailable(lang);
-          if (isAvailable) {
-            await _flutterTts.setLanguage(lang);
-            await _flutterTts.setSpeechRate(0.5);
-            await _flutterTts.setVolume(1.0);
-            
-            debugPrint("iOS TTS fallback set to: $lang");
-            languageSet = true;
-            break;
-          }
-        } catch (e) {
-          debugPrint("Failed to set language $lang: $e");
-          continue;
-        }
-      }
-      
-      if (!languageSet) {
-        debugPrint("iOS TTS fallback: No suitable language found");
-      }
-      
-      // Warm up TTS engine
+      // Warm up TTS with a static Arabic phrase
       await _warmupTts();
       
     } catch (e) {
-      debugPrint("iOS TTS fallback initialization failed: $e");
+      debugPrint("iOS TTS setup error: $e");
+      // Fallback to default language
+      try {
+        await _flutterTts.setLanguage("en-US");
+      } catch (e) {
+        debugPrint("Fallback TTS error: $e");
+      }
+    }
+  }
+
+  Future<void> _warmupTts() async {
+    try {
+      // Speak a static Arabic phrase to warm up the engine
+      await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
+      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
+      debugPrint("TTS warmup error: $e");
     }
   }
 
@@ -1233,38 +1105,16 @@ void initState() {
         _isFirstSpeech = false;
       }
 
-      // Platform-specific volume and speech handling
+      // Set volume to maximum for each speech
+      await _flutterTts.setVolume(1.0);
+      
+      // iOS-specific: Check if Arabic is still available
       if (Platform.isIOS) {
-        // For iOS, ensure audio session is active and volume is set
-        await _flutterTts.setVolume(1.0);
-        
-        // Check current language setting
-        var currentLanguage = await _flutterTts.getDefaultEngine;
-        debugPrint("Current TTS language/engine: $currentLanguage");
-        
-        // Verify Arabic is still available before speaking
         var isArabicAvailable = await _flutterTts.isLanguageAvailable('ar-SA');
         if (!isArabicAvailable) {
-          // Try to re-setup Arabic TTS
-          debugPrint("Arabic TTS not available, attempting to re-setup");
-          await _setupiOSArabicTts();
-          
-          // If still not available, check if we can use any Arabic variant
-          isArabicAvailable = await _flutterTts.isLanguageAvailable('ar');
-          if (!isArabicAvailable) {
-            debugPrint("No Arabic TTS available, using fallback message");
-            // Use a simple fallback for critical navigation instructions
-            if (text.contains('اتجه') || text.contains('انعطف') || text.contains('استمر')) {
-              text = "Navigation instruction";
-              await _flutterTts.setLanguage("en-US");
-            }
-          }
+          debugPrint("Arabic TTS not available, using English fallback");
+          await _flutterTts.setLanguage("en-US");
         }
-        
-        // iOS sometimes needs a small delay before speaking
-        await Future.delayed(const Duration(milliseconds: 100));
-      } else {
-        await _flutterTts.setVolume(1.0);
       }
       
       // Attempt to speak
@@ -1272,40 +1122,10 @@ void initState() {
         const Duration(seconds: 10),
         onTimeout: () => 0,
       );
-      bool success = result == 1;
       
-      // iOS-specific retry logic
-      if (!success && Platform.isIOS) {
-        debugPrint("iOS TTS speak failed, attempting recovery");
-        await _reinitializeTtsForIOS();
-        
-        // Retry once with fallback
-        await Future.delayed(const Duration(milliseconds: 200));
-        result = await _flutterTts.speak(text).timeout(
-          const Duration(seconds: 5),
-          onTimeout: () => 0,
-        );
-        success = result == 1;
-        
-        if (!success) {
-          debugPrint("iOS TTS retry also failed");
-        }
-      }
-      
-      return success;
+      return result == 1;
     } catch (e) {
       debugPrint("TTS speak error: $e");
-      
-      // Auto-recovery for iOS
-      if (Platform.isIOS && mounted) {
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) {
-            _isFirstSpeech = true;
-            _setupiOSArabicTts();
-          }
-        });
-      }
-      
       return false;
     }
   }
