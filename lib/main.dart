@@ -110,10 +110,37 @@ Future<void> _initializeOneSignal() async {
 
 Future<void> _requestBasicPermissions() async {
   try {
-    // Request location permission with better user experience
-    // This doesn't block app initialization
-    final status = await Permission.locationWhenInUse.request();
-    debugPrint("Location permission status: $status");
+    if (Platform.isIOS) {
+      // For iOS, check location services and permission status
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint("Location services are disabled on iOS");
+        return;
+      }
+      
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        debugPrint("iOS Location permission requested: $permission");
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint("iOS Location permission permanently denied - user needs to enable in settings");
+      } else if (permission == LocationPermission.whileInUse || 
+                 permission == LocationPermission.always) {
+        debugPrint("iOS Location permission granted: $permission");
+      }
+    } else {
+      // For Android, use permission_handler
+      final status = await Permission.locationWhenInUse.request();
+      debugPrint("Android Location permission status: $status");
+      
+      if (status.isDenied) {
+        debugPrint("Android Location permission denied - app will request again when needed");
+      } else if (status.isPermanentlyDenied) {
+        debugPrint("Android Location permission permanently denied - user needs to enable in settings");
+      }
+    }
   } catch (e) {
     debugPrint("Permission request error: $e");
   }
@@ -466,7 +493,17 @@ void initState() {
       } else if (Platform.isIOS) {
         await _flutterTts.setSharedInstance(true);
         await _flutterTts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.playback, 
+          IosTextToSpeechAudioCategory.playAndRecord, 
+          [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.allowAirPlay,
+            IosTextToSpeechAudioCategoryOptions.duckOthers
+          ]
+        );
+        // Set iOS audio session for navigation
+        await _flutterTts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
           [IosTextToSpeechAudioCategoryOptions.defaultToSpeaker]
         );
       }
@@ -477,6 +514,15 @@ void initState() {
         // Only reinitialize if widget is still mounted
         if (mounted) _initTts();
       });
+      
+      _flutterTts.setCompletionHandler(() {
+        debugPrint("TTS completed successfully");
+      });
+      
+      _flutterTts.setStartHandler(() {
+        debugPrint("TTS started");
+      });
+      
     } catch (e) {
       debugPrint("$kTtsInitializationFailed: $e");
     }
@@ -514,14 +560,104 @@ void initState() {
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLocation = true);
     
-    final status = await Permission.locationWhenInUse.request();
-    if (!status.isGranted) {
-      _setLocationError(kLocationPermissionDenied);
-      return;
+    // Handle iOS and Android location permission differently
+    if (Platform.isIOS) {
+      await _handleiOSLocationPermission();
+    } else {
+      await _handleAndroidLocationPermission();
     }
+  }
 
+  Future<void> _handleiOSLocationPermission() async {
     try {
-      final position = await Geolocator.getCurrentPosition();
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _setLocationError('خدمات الموقع غير مفعلة. يرجى تفعيلها من الإعدادات');
+        _showLocationServiceDialog();
+        return;
+      }
+
+      // Check current permission status
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      // Handle different iOS permission states
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _setLocationError('تم رفض إذن الموقع');
+          return;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        _setLocationError('تم رفض إذن الموقع نهائياً. يرجى تفعيله من الإعدادات');
+        _showPermissionDialog();
+        return;
+      }
+
+      // Get location with iOS-optimized settings
+      await _getLocationWithSettings();
+    } catch (e) {
+      _setLocationError('خطأ في الحصول على الموقع: $e');
+    }
+  }
+
+  Future<void> _handleAndroidLocationPermission() async {
+    try {
+      // Check current permission status first
+      var status = await Permission.locationWhenInUse.status;
+      
+      // If not granted, request permission
+      if (!status.isGranted) {
+        status = await Permission.locationWhenInUse.request();
+      }
+      
+      // Handle different permission states
+      if (status.isDenied) {
+        _setLocationError(kLocationPermissionDenied);
+        return;
+      } else if (status.isPermanentlyDenied) {
+        _setLocationError('تم رفض إذن الموقع نهائياً. يرجى تفعيله من الإعدادات');
+        _showPermissionDialog();
+        return;
+      } else if (status.isRestricted) {
+        _setLocationError('إذن الموقع مقيد على هذا الجهاز');
+        return;
+      }
+
+      await _getLocationWithSettings();
+    } catch (e) {
+      _setLocationError('خطأ في الحصول على الموقع: $e');
+    }
+  }
+
+  Future<void> _getLocationWithSettings() async {
+    try {
+      final LocationSettings locationSettings = Platform.isIOS
+          ? AppleSettings(
+              accuracy: LocationAccuracy.high,
+              activityType: ActivityType.automotiveNavigation,
+              distanceFilter: 10,
+              pauseLocationUpdatesAutomatically: false,
+              showBackgroundLocationIndicator: true,
+            )
+          : AndroidSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 10,
+              forceLocationManager: false,
+              intervalDuration: const Duration(seconds: 10),
+              foregroundNotificationConfig: const ForegroundNotificationConfig(
+                notificationText: "تطبيق روتيكو يستخدم موقعك للملاحة",
+                notificationTitle: "الملاحة نشطة",
+                enableWakeLock: true,
+              ),
+            );
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      );
+      
       if (!mounted) return;
       
       setState(() {
@@ -534,6 +670,70 @@ void initState() {
     } catch (e) {
       _setLocationError('$kLocationFetchFailed: $e');
     }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('إذن الموقع مطلوب'),
+            content: const Text(
+              'هذا التطبيق يحتاج إلى إذن الموقع لتوفير خدمات الملاحة. يرجى تفعيل إذن الموقع من الإعدادات.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('إلغاء'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  if (Platform.isIOS) {
+                    Geolocator.openAppSettings();
+                  } else {
+                    openAppSettings();
+                  }
+                },
+                child: const Text('الإعدادات'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('خدمات الموقع غير مفعلة'),
+            content: const Text(
+              'يرجى تفعيل خدمات الموقع من إعدادات الجهاز لاستخدام الملاحة.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('إلغاء'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Geolocator.openLocationSettings();
+                },
+                child: const Text('الإعدادات'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _setLocationError(String message) {
@@ -565,8 +765,21 @@ void initState() {
   }
 
   Future<void> _startLocationTracking() async {
-    final status = await Permission.locationWhenInUse.request();
-    if (!status.isGranted) return;
+    // Platform-specific permission handling
+    if (Platform.isIOS) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        _setLocationError('إذن الموقع غير مُفعّل للملاحة');
+        return;
+      }
+    } else {
+      final status = await Permission.locationWhenInUse.request();
+      if (!status.isGranted) {
+        _setLocationError('إذن الموقع غير مُفعّل للملاحة');
+        return;
+      }
+    }
 
     try {
       if (!_hasLiveDataSource) {
@@ -574,16 +787,42 @@ void initState() {
         _hasLiveDataSource = true;
       }
 
+      // Platform-specific location settings for tracking
+      final LocationSettings locationSettings = Platform.isIOS
+          ? AppleSettings(
+              accuracy: LocationAccuracy.bestForNavigation,
+              activityType: ActivityType.automotiveNavigation,
+              distanceFilter: 3,
+              pauseLocationUpdatesAutomatically: false,
+              showBackgroundLocationIndicator: true,
+            )
+          : AndroidSettings(
+              accuracy: LocationAccuracy.bestForNavigation,
+              distanceFilter: 3,
+              forceLocationManager: false,
+              intervalDuration: const Duration(seconds: 2),
+              foregroundNotificationConfig: const ForegroundNotificationConfig(
+                notificationText: "تطبيق روتيكو يستخدم موقعك للملاحة",
+                notificationTitle: "الملاحة نشطة",
+                enableWakeLock: true,
+              ),
+            );
+
       _positionStream = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.bestForNavigation,
-          distanceFilter: 5,
-        ),
-      ).listen((position) {
-        if (!mounted) return;
-        setState(() => _currentPosition = position);
-        _updateNavigationProgress();
-      });
+        locationSettings: locationSettings,
+      ).listen(
+        (position) {
+          if (!mounted) return;
+          setState(() => _currentPosition = position);
+          _updateNavigationProgress();
+        },
+        onError: (error) {
+          debugPrint('Location tracking error: $error');
+          if (mounted) {
+            _showSnackBar('خطأ في تتبع الموقع: $error');
+          }
+        },
+      );
     } catch (e) {
       _showSnackBar('تعذر تتبع الموقع: $e');
     }
