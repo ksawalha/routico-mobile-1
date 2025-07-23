@@ -11,7 +11,7 @@
   <key>provisioningProfiles</key>
   <dict>
     <key>com.karamsawalha.routico</key>
-    <string>Routico</string>
+    <string>RouticoDEV</string>
   </dict>
   <key>stripSwiftSymbols</key>
   <true/>
