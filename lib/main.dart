@@ -1,6 +1,29 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:gem_kit/core.dart' as gem;
+import 'package:gem_kit/map.dart' as gem;
+import 'package:gem_kit/navigation.dart' as gem;
+import 'package:gem_kit/routing.dart' as gem;
+import 'package:gem_kit/sense.dart' as gem;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:collection/collection.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'login.dart';
+import 'dart:ui';
+import 'dart:io';
+import 'dart:math';
 
 void main() => runApp(const MyApp());
 
