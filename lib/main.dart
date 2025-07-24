@@ -519,16 +519,20 @@ void initState() {
 
   Future<void> _setupIosTts() async {
     try {
-      // Set audio session configuration
-      await _flutterTts.setIosAudioCategory(IosTextToSpeechAudioCategory.playback,
-          [
-            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-            IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
-          ],
-          IosTextToSpeechAudioMode.defaultMode
+      // Set audio session configuration - CRITICAL FIX FOR iOS
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playAndRecord,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
+        ],
+        IosTextToSpeechAudioMode.spokenAudio
       );
+      
+      // Enable shared instance for background audio
+      await _flutterTts.setSharedInstance(true);
       
       // Set Arabic language
       await _flutterTts.setLanguage(kArabicLanguageCode);
@@ -537,6 +541,9 @@ void initState() {
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
+      
+      // Enable speak completion waiting
+      await _flutterTts.awaitSpeakCompletion(true);
       
       // Warm up TTS with a static Arabic phrase
       await _warmupTts();
@@ -556,7 +563,6 @@ void initState() {
     try {
       // Speak a static Arabic phrase to warm up the engine
       await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
-      _showSnackBar("spoke");
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       _showSnackBar("خطأ في تهيئة نظام التوجيه الصوتي: $e");
@@ -1107,15 +1113,6 @@ void initState() {
 
       // Set volume to maximum for each speech
       await _flutterTts.setVolume(1.0);
-      
-      // iOS-specific: Check if Arabic is still available
-      if (Platform.isIOS) {
-        var isArabicAvailable = await _flutterTts.isLanguageAvailable('ar-SA');
-        if (!isArabicAvailable) {
-          debugPrint("Arabic TTS not available, using English fallback");
-          await _flutterTts.setLanguage("en-US");
-        }
-      }
       
       // Attempt to speak
       int result = await _flutterTts.speak(text).timeout(
