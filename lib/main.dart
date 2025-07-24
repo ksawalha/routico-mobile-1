@@ -523,13 +523,14 @@ void initState() {
   Future<void> _setupIosTts() async {
     try {
       // Set audio session configuration
-      await _flutterTts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [
-          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-        ],
+      await _flutterTts.setIosAudioCategory(IosTextToSpeechAudioCategory.playback,
+          [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+            IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
+          ],
+          IosTextToSpeechAudioMode.defaultMode
       );
       
       // Set Arabic language
@@ -558,9 +559,10 @@ void initState() {
     try {
       // Speak a static Arabic phrase to warm up the engine
       await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
+      _showSnackBar("spoke");
       await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
-      debugPrint("TTS warmup error: $e");
+      _showSnackBar("خطأ في تهيئة نظام التوجيه الصوتي: $e");
     }
   }
 
