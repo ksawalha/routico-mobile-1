@@ -441,9 +441,6 @@ void initState() {
 
   void _initializePlatformServices() {
     try {
-      // Initialize TTS with platform-specific settings
-      _initTts();
-      
       // Initialize connectivity monitoring
       _initConnectivityListener();
       
@@ -1056,6 +1053,7 @@ void initState() {
   }
 
   void _startNavigation() {
+    _initTts();
     final mainRoute = _mapController?.preferences.routes.mainRoute;
     if (mainRoute == null) {
       _showSnackBar("لا يوجد طريق متاح");
