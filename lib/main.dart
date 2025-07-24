@@ -1166,7 +1166,7 @@ void initState() {
   void _toggleVoiceMute() {
     setState(() => _isVoiceMuted = !_isVoiceMuted);
     gem.SoundPlayingService.canPlaySounds = !_isVoiceMuted;
-    
+
     if (_isVoiceMuted) {
       gem.SoundPlayingService.cancelNavigationSoundsPlaying();
       _flutterTts.stop();
