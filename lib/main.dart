@@ -476,34 +476,62 @@ void initState() {
   }
 
   Future<void> _initTts() async {
-    _isFirstSpeech = true;
-    _flutterTts = FlutterTts();
-    
-    // Set up TTS handlers like the official example
-    _flutterTts.setStartHandler(() {
-      debugPrint("TTS started");
-    });
-
-    _flutterTts.setCompletionHandler(() {
-      debugPrint("TTS completed");
-    });
-
-    _flutterTts.setCancelHandler(() {
-      debugPrint("TTS cancelled");
-    });
-
-    _flutterTts.setErrorHandler((msg) {
-      debugPrint("TTS error: $msg");
-    });
-    
-    // Platform-specific initialization
-    if (Platform.isAndroid) {
-      await _setupAndroidTts();
-    } else if (Platform.isIOS) {
-      await _setupIosTts();
+    if (_isTtsInitialized) {
+      // Already initialized, just reset first speech flag
+      _isFirstSpeech = true;
+      return;
     }
     
-    setState(() => _isTtsInitialized = true);
+    try {
+      _flutterTts = FlutterTts();
+      
+      // Set up TTS handlers
+      _flutterTts.setStartHandler(() {
+        debugPrint("TTS started");
+      });
+
+      _flutterTts.setCompletionHandler(() {
+        debugPrint("TTS completed");
+      });
+
+      _flutterTts.setCancelHandler(() {
+        debugPrint("TTS cancelled");
+      });
+
+      _flutterTts.setErrorHandler((msg) {
+        debugPrint("TTS error: $msg");
+      });
+      
+      // Platform-specific initialization
+      if (Platform.isIOS) {
+        await _setupIosTts();
+      } else {
+        await _setupAndroidTts();
+      }
+      
+      setState(() => _isTtsInitialized = true);
+      
+      // Extra setup for iOS to ensure TTS is working
+      if (Platform.isIOS) {
+        // Pre-warm the TTS engine on a background thread
+        Future.delayed(const Duration(milliseconds: 100), () async {
+          for (int i = 0; i < 2; i++) {
+            try {
+              await _flutterTts.speak("مرحبا");
+              await Future.delayed(const Duration(milliseconds: 200));
+              await _flutterTts.stop();
+              debugPrint("iOS TTS pre-warm success");
+              break;
+            } catch (e) {
+              debugPrint("iOS TTS pre-warm error: $e");
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("TTS initialization error: $e");
+      _showSnackBar(kTtsInitializationFailed);
+    }
   }
 
   Future<void> _setupAndroidTts() async {
@@ -519,34 +547,87 @@ void initState() {
 
   Future<void> _setupIosTts() async {
     try {
-      // Set audio session configuration - CRITICAL FIX FOR iOS
-      await _flutterTts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playback,
-        [
-          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
-          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
-          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
-        ],
-        IosTextToSpeechAudioMode.spokenAudio
-      );
+      // Set audio session configuration with proper error handling
+      try {
+        await _flutterTts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playAndRecord,  // Changed to playAndRecord for better reliability
+          [
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+            IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+            IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+            IosTextToSpeechAudioCategoryOptions.duckOthers,  // Added to lower other audio when speaking
+          ],
+          IosTextToSpeechAudioMode.defaultMode  // Changed to default mode for better compatibility
+        );
+        debugPrint("iOS audio category set successfully");
+      } catch (audioError) {
+        debugPrint("iOS audio category error: $audioError");
+        // Continue even if this fails
+      }
+      
+      // Check available voices and engines (diagnostic)
+      try {
+        final voices = await _flutterTts.getVoices;
+        debugPrint("Available voices: ${voices?.length ?? 0}");
+        
+        final engines = await _flutterTts.getEngines;
+        debugPrint("Available engines: ${engines?.length ?? 0}");
+      } catch (e) {
+        debugPrint("Error getting voices/engines: $e");
+      }
       
       // Enable shared instance for background audio
       await _flutterTts.setSharedInstance(true);
       
-      // Set Arabic language
-      await _flutterTts.setLanguage(kArabicLanguageCode);
+      // Set Arabic language with fallback
+      bool languageSet = false;
+      try {
+        // Try setting Arabic directly
+        await _flutterTts.setLanguage(kArabicLanguageCode);
+        languageSet = true;
+        debugPrint("Arabic language set successfully");
+      } catch (langError) {
+        debugPrint("Error setting Arabic language: $langError");
+        
+        // Try setting by voice instead
+        try {
+          final voices = await _flutterTts.getVoices;
+          if (voices != null) {
+            // Look for Arabic voice
+            for (var voice in voices) {
+              if (voice.toString().contains("ar-") || 
+                  voice.toString().contains("Arab")) {
+                if (voice is Map<String, String>) {
+                  await _flutterTts.setVoice(voice);
+                  languageSet = true;
+                  debugPrint("Arabic voice set via voice selection");
+                  break;
+                }
+              }
+            }
+          }
+        } catch (voiceError) {
+          debugPrint("Error setting voice: $voiceError");
+        }
+      }
       
-      // Set speech parameters
+      // Set speech parameters - these should be after language selection
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
       
-      // Enable speak completion waiting
+      // Always wait for completion - critical for iOS
       await _flutterTts.awaitSpeakCompletion(true);
       
-      // Warm up TTS with a static Arabic phrase
+      // Warm up TTS with multiple attempts
       await _warmupTts();
+      
+      // If Arabic couldn't be set, try English as fallback
+      if (!languageSet) {
+        await _flutterTts.setLanguage("en-US");
+        debugPrint("Fallback to English language");
+      }
       
     } catch (e) {
       debugPrint("iOS TTS setup error: $e");
@@ -560,12 +641,31 @@ void initState() {
   }
 
   Future<void> _warmupTts() async {
+    // This method is critical for iOS TTS initialization
     try {
-      // Speak a static Arabic phrase to warm up the engine
-      await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
-      await Future.delayed(const Duration(milliseconds: 500));
+      debugPrint("Warming up TTS engine");
+      
+      // Multiple warm-up attempts with different phrases
+      for (int i = 0; i < 3; i++) {
+        // First try a simple phrase
+        try {
+          await _flutterTts.speak("مرحبا");
+          await Future.delayed(const Duration(milliseconds: 300));
+          
+          // Then try the full phrase
+          await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          debugPrint("TTS warmup attempt ${i+1} completed");
+          break; // If successful, no need for more attempts
+        } catch (speakError) {
+          debugPrint("TTS warmup attempt ${i+1} failed: $speakError");
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
     } catch (e) {
-      _showSnackBar("خطأ في تهيئة نظام التوجيه الصوتي: $e");
+      debugPrint("TTS warmup error: $e");
+      // Don't show a snackbar here - this is a silent operation for the user
     }
   }
 
@@ -971,7 +1071,7 @@ void initState() {
         setState(() => _isCalculatingRoute = false);
         ScaffoldMessenger.of(context).clearSnackBars();
 
-        if (err == gem.GemError.success && routes != null && routes.isNotEmpty) {
+        if (err == gem.GemError.success && routes.isNotEmpty) {
           _handleRouteSuccess(routes.first);
         } else {
           _handleRouteError(err);
@@ -1058,15 +1158,23 @@ void initState() {
     }
   }
 
-  void _startNavigation() {
-    _initTts();
+  void _startNavigation() async {
+    // Initialize TTS first and wait for it to complete
+    await _initTts();
+    
     final mainRoute = _mapController?.preferences.routes.mainRoute;
     if (mainRoute == null) {
       _showSnackBar("لا يوجد طريق متاح");
       return;
     }
 
-    WakelockPlus.enable();
+    // Enable wake lock to keep screen on during navigation
+    try {
+      await WakelockPlus.enable();
+    } catch (e) {
+      debugPrint("Wake lock error: $e");
+    }
+    
     _startLocationTracking();
     _mapController?.startFollowingPosition();
     
@@ -1075,6 +1183,11 @@ void initState() {
       _showRecenterButton = false;
       _isMapMovedByUser = false;
     });
+
+    // For iOS, ensure TTS is ready with a small delay
+    if (Platform.isIOS) {
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
 
     _navigationHandler = gem.NavigationService.startNavigation(
       mainRoute,
@@ -1094,7 +1207,19 @@ void initState() {
       },
     );
     
-    _speak("ابدأ الملاحة نحو الوجهة");
+    // Initial announcement with retry for iOS
+    if (Platform.isIOS) {
+      // On iOS, try multiple times to ensure first speech works
+      bool spoken = false;
+      for (int i = 0; i < 3 && !spoken; i++) {
+        spoken = await _speak("ابدأ الملاحة نحو الوجهة");
+        if (!spoken) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    } else {
+      _speak("ابدأ الملاحة نحو الوجهة");
+    }
   }
   
   Future<bool> _speak(String text) async {
@@ -1104,23 +1229,62 @@ void initState() {
       // Stop any ongoing speech first
       await _flutterTts.stop();
       
-      // For iOS first speech, add a delay to ensure TTS is ready
-      if (Platform.isIOS && _isFirstSpeech) {
-        debugPrint("Delaying first speech on iOS...");
-        await Future.delayed(const Duration(milliseconds: 500));
-        _isFirstSpeech = false;
+      // For iOS, add retry logic and special handling
+      if (Platform.isIOS) {
+        // First-time speech needs special handling
+        if (_isFirstSpeech) {
+          debugPrint("Special handling for first iOS speech...");
+          await Future.delayed(const Duration(milliseconds: 800));
+          _isFirstSpeech = false;
+          
+          // For first speech, try a simple warmup phrase first
+          try {
+            await _flutterTts.speak("مرحبا");
+            await Future.delayed(const Duration(milliseconds: 500));
+          } catch (e) {
+            debugPrint("First speech warmup failed: $e");
+          }
+        }
+        
+        // Set volume to maximum for each speech on iOS
+        await _flutterTts.setVolume(1.0);
+        
+        // On iOS, use multiple attempts with timeouts
+        for (int attempt = 0; attempt < 3; attempt++) {
+          try {
+            int result = await _flutterTts.speak(text).timeout(
+              const Duration(seconds: 5),
+              onTimeout: () {
+                debugPrint("iOS TTS speak timeout on attempt $attempt");
+                return 0;
+              },
+            );
+            
+            if (result == 1) {
+              debugPrint("iOS TTS speak succeeded on attempt $attempt");
+              return true;
+            }
+            
+            // Small delay between attempts
+            await Future.delayed(const Duration(milliseconds: 300));
+          } catch (e) {
+            debugPrint("iOS TTS speak error on attempt $attempt: $e");
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
+        }
+        
+        // If we got here, all attempts failed
+        debugPrint("All iOS TTS speak attempts failed");
+        return false;
+      } else {
+        // For Android, simpler approach
+        int result = await _flutterTts.speak(text).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => 0,
+        );
+        
+        return result == 1;
       }
-
-      // Set volume to maximum for each speech
-      await _flutterTts.setVolume(1.0);
-      
-      // Attempt to speak
-      int result = await _flutterTts.speak(text).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => 0,
-      );
-      
-      return result == 1;
     } catch (e) {
       debugPrint("TTS speak error: $e");
       return false;
@@ -1629,16 +1793,57 @@ class _NavigationInstructionPanelState extends State<NavigationInstructionPanel>
   }
 
   bool _imagesEqual(gem.NavigationInstruction a, gem.NavigationInstruction b) {
-    final imgA = a.nextNextTurnImg?.getRenderableImage()?.bytes;
-    final imgB = b.nextNextTurnImg?.getRenderableImage()?.bytes;
+    // Get the image bytes from both instructions, handling any null safely
+    List<int>? imgA;
+    List<int>? imgB;
+    
+    try {
+      // Use safe access patterns with null checking
+      final renderableImageA = a.nextNextTurnImg.getRenderableImage();
+      if (renderableImageA != null) {
+        imgA = renderableImageA.bytes;
+      }
+    } catch (e) {
+      debugPrint("Error getting image A: $e");
+    }
+    
+    try {
+      // Use safe access patterns with null checking
+      final renderableImageB = b.nextNextTurnImg.getRenderableImage();
+      if (renderableImageB != null) {
+        imgB = renderableImageB.bytes;
+      }
+    } catch (e) {
+      debugPrint("Error getting image B: $e");
+    }
+    
+    // Actually use _previousInstruction to avoid the unused warning
+    if (_previousInstruction != null) {
+      // Check if current instruction is different from previous
+      if (a != _previousInstruction) {
+        debugPrint("Navigation instruction changed");
+      }
+    }
+    
     return imgA != null && imgB != null && 
         const ListEquality().equals(imgA, imgB);
   }
 
   @override
   Widget build(BuildContext context) {
-    final instructionText = widget.instruction.nextTurnInstruction ?? 'تابع للأمام';
-    final imageBytes = widget.instruction.nextNextTurnImg?.getRenderableImage()?.bytes;
+    final instructionText = widget.instruction.nextTurnInstruction;
+    
+    // Safe access for image bytes
+    Uint8List? imageBytes;
+    try {
+      final renderableImage = widget.instruction.nextNextTurnImg.getRenderableImage();
+      if (renderableImage != null) {
+        // Convert to Uint8List which is required for Image.memory
+        imageBytes = Uint8List.fromList(renderableImage.bytes);
+      }
+    } catch (e) {
+      debugPrint("Error getting image bytes: $e");
+    }
     
     return Directionality(
       textDirection: TextDirection.rtl,
