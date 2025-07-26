@@ -35,7 +35,7 @@ const String kSearchEndpoint =
 const String kOneSignalAppId = "34f8a9aa-4822-485a-bd21-9d3c20692dd9";
 const String kMapStyleAsset = "assets/map.style";
 const String kLogoAsset = "assets/logo.png";
-const String kArabicLanguageCode = "ar-SA";
+const String kArabicLanguageCode = "ar";
 const int kMaxApiRetries = 5;
 const int kRouteCalculationTimeout = 30; // seconds
 
@@ -625,7 +625,7 @@ void initState() {
       
       // If Arabic couldn't be set, try English as fallback
       if (!languageSet) {
-        await _flutterTts.setLanguage("en-US");
+        await _flutterTts.setLanguage("ar");
         debugPrint("Fallback to English language");
       }
       
@@ -633,7 +633,7 @@ void initState() {
       debugPrint("iOS TTS setup error: $e");
       // Fallback to default language
       try {
-        await _flutterTts.setLanguage("en-US");
+        await _flutterTts.setLanguage("ar");
       } catch (e) {
         debugPrint("Fallback TTS error: $e");
       }
@@ -1212,13 +1212,13 @@ void initState() {
       // On iOS, try multiple times to ensure first speech works
       bool spoken = false;
       for (int i = 0; i < 3 && !spoken; i++) {
-        spoken = await _speak("Staring navigation to your destination");
+        spoken = await _speak("ابدأ الملاحة إلى وجهتك");
         if (!spoken) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
     } else {
-      _speak("Staring navigation to your destination");
+      _speak("ابدأ الملاحة إلى وجهتك");
     }
   }
   
