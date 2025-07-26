@@ -521,7 +521,7 @@ void initState() {
     try {
       // Set audio session configuration - CRITICAL FIX FOR iOS
       await _flutterTts.setIosAudioCategory(
-        IosTextToSpeechAudioCategory.playAndRecord,
+        IosTextToSpeechAudioCategory.playback,
         [
           IosTextToSpeechAudioCategoryOptions.allowBluetooth,
           IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
