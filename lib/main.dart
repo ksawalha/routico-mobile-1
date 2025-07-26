@@ -1212,13 +1212,13 @@ void initState() {
       // On iOS, try multiple times to ensure first speech works
       bool spoken = false;
       for (int i = 0; i < 3 && !spoken; i++) {
-        spoken = await _speak("ابدأ الملاحة نحو الوجهة");
+        spoken = await _speak("Staring navigation to your destination");
         if (!spoken) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
     } else {
-      _speak("ابدأ الملاحة نحو الوجهة");
+      _speak("Staring navigation to your destination");
     }
   }
   
