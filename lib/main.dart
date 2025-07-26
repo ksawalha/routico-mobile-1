@@ -613,15 +613,12 @@ void initState() {
       }
       
       // Set speech parameters - these should be after language selection
-      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setSpeechRate(1.0);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
       
       // Always wait for completion - critical for iOS
       await _flutterTts.awaitSpeakCompletion(true);
-      
-      // Warm up TTS with multiple attempts
-      await _warmupTts();
       
       // If Arabic couldn't be set, try English as fallback
       if (!languageSet) {
@@ -637,35 +634,6 @@ void initState() {
       } catch (e) {
         debugPrint("Fallback TTS error: $e");
       }
-    }
-  }
-
-  Future<void> _warmupTts() async {
-    // This method is critical for iOS TTS initialization
-    try {
-      debugPrint("Warming up TTS engine");
-      
-      // Multiple warm-up attempts with different phrases
-      for (int i = 0; i < 3; i++) {
-        // First try a simple phrase
-        try {
-          await _flutterTts.speak("مرحبا");
-          await Future.delayed(const Duration(milliseconds: 300));
-          
-          // Then try the full phrase
-          await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
-          await Future.delayed(const Duration(milliseconds: 500));
-          
-          debugPrint("TTS warmup attempt ${i+1} completed");
-          break; // If successful, no need for more attempts
-        } catch (speakError) {
-          debugPrint("TTS warmup attempt ${i+1} failed: $speakError");
-          await Future.delayed(const Duration(seconds: 1));
-        }
-      }
-    } catch (e) {
-      debugPrint("TTS warmup error: $e");
-      // Don't show a snackbar here - this is a silent operation for the user
     }
   }
 
@@ -943,7 +911,7 @@ void initState() {
               forceLocationManager: false,
               intervalDuration: const Duration(seconds: 2),
               foregroundNotificationConfig: const ForegroundNotificationConfig(
-                notificationText: "تطبيق روتيكو يستخدم موقعك للملاحة",
+                notificationText: "التطبيق يستخدم موقعك للملاحة",
                 notificationTitle: "الملاحة نشطة",
                 enableWakeLock: true,
               ),
@@ -1212,13 +1180,13 @@ void initState() {
       // On iOS, try multiple times to ensure first speech works
       bool spoken = false;
       for (int i = 0; i < 3 && !spoken; i++) {
-        spoken = await _speak("ابدأ الملاحة إلى وجهتك");
+        spoken = await _speak("أبدأ الملاحة إلى وجهتك");
         if (!spoken) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
     } else {
-      _speak("ابدأ الملاحة إلى وجهتك");
+      _speak("أبدأ الملاحة إلى وجهتك");
     }
   }
   
