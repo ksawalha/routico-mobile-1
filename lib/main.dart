@@ -20,6 +20,7 @@ import 'package:collection/collection.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'login.dart';
+import 'notifications.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:math';
@@ -169,6 +170,7 @@ class AppWrapper extends StatelessWidget {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return MyHomePage(apiKey: args['apiKey']);
         },
+        '/notifications': (context) => const NotificationsScreen(),
       },
     );
   }
@@ -1458,6 +1460,12 @@ void initState() {
                       onTap: () => setState(() => _isSearching = true),
                     ),
                   ),
+                  if (!_isSearching)
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined, color: kPrimaryColor),
+                      onPressed: () => Navigator.pushNamed(context, '/notifications'),
+                      tooltip: 'الإشعارات',
+                    ),
                   if (!_isSearching && _areRoutesBuilt)
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.red),
