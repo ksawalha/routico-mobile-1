@@ -506,6 +506,12 @@ void initState() {
         await _setupIosTts();
       } else {
         await _setupAndroidTts();
+        
+        // For Android, wait a bit longer for TTS engine to be ready
+        await Future.delayed(const Duration(milliseconds: 1000));
+        
+        // Test TTS functionality on Android
+        await _testAndroidTts();
       }
       
       setState(() => _isTtsInitialized = true);
@@ -515,14 +521,260 @@ void initState() {
     }
   }
 
+  Future<void> _testAndroidTts() async {
+    try {
+      debugPrint("Testing Android TTS functionality...");
+      
+      // Check if TTS service is available
+      try {
+        final languages = await _flutterTts.getLanguages;
+        debugPrint("TTS Available languages: ${languages?.length ?? 0}");
+        if (languages != null) {
+          for (var lang in languages) {
+            if (lang.toString().toLowerCase().contains('ar')) {
+              debugPrint("Arabic language available: $lang");
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting TTS languages: $e");
+      }
+      
+      // Test if TTS is working with a simple word
+      debugPrint("Attempting TTS speak test...");
+      bool isWorking = false;
+      
+      try {
+        int result = await _flutterTts.speak("تجربة").timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            debugPrint("TTS speak test timed out");
+            return 0;
+          },
+        );
+        
+        isWorking = (result == 1);
+        debugPrint("TTS speak test result: $result (${isWorking ? 'success' : 'failed'})");
+        
+      } catch (e) {
+        debugPrint("TTS speak test exception: $e");
+      }
+      
+      if (isWorking) {
+        debugPrint("Android TTS test successful");
+      } else {
+        debugPrint("Android TTS test failed - attempting alternative setup");
+        // Try alternative setup
+        await _setupAlternativeAndroidTts();
+        
+        // Test again with alternative setup
+        try {
+          int result2 = await _flutterTts.speak("test").timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => 0,
+          );
+          debugPrint("Alternative TTS test result: $result2");
+        } catch (e) {
+          debugPrint("Alternative TTS test failed: $e");
+        }
+      }
+      
+      // Stop any test speech
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _flutterTts.stop();
+      
+    } catch (e) {
+      debugPrint("Android TTS test error: $e");
+    }
+  }
+
+  Future<void> _setupAlternativeAndroidTts() async {
+    try {
+      debugPrint("Setting up alternative Android TTS configuration...");
+      
+      // Reset all parameters
+      await _flutterTts.setSpeechRate(0.6);
+      await _flutterTts.setPitch(1.2);
+      await _flutterTts.setVolume(0.9);
+      
+      // Try without specifying engine
+      try {
+        await _flutterTts.setLanguage("ar");
+      } catch (e) {
+        debugPrint("Alternative language setup failed: $e");
+        // Try with default language
+        await _flutterTts.setLanguage("en-US");
+      }
+      
+      await _flutterTts.awaitSpeakCompletion(false);
+      
+    } catch (e) {
+      debugPrint("Alternative Android TTS setup error: $e");
+    }
+  }
+
   Future<void> _setupAndroidTts() async {
     try {
-      await _flutterTts.setLanguage(kArabicLanguageCode);
+      debugPrint("Setting up Android TTS...");
+      
+      // Check available engines and voices for debugging
+      try {
+        final engines = await _flutterTts.getEngines;
+        debugPrint("Available Android engines: ${engines?.length ?? 0}");
+        if (engines != null && engines.isNotEmpty) {
+          for (var engine in engines) {
+            debugPrint("Engine: $engine");
+          }
+        } else {
+          debugPrint("WARNING: No TTS engines found on Android device");
+        }
+        
+        final voices = await _flutterTts.getVoices;
+        debugPrint("Available Android voices: ${voices?.length ?? 0}");
+        if (voices != null && voices.isNotEmpty) {
+          // Log Arabic voices specifically
+          for (var voice in voices) {
+            String voiceStr = voice.toString().toLowerCase();
+            if (voiceStr.contains('ar') || voiceStr.contains('arab')) {
+              debugPrint("Arabic voice found: $voice");
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error getting Android engines/voices: $e");
+      }
+      
+      // Set basic speech parameters first
       await _flutterTts.setSpeechRate(0.5);
-      await _flutterTts.setEngine('com.google.android.tts');
-      await _flutterTts.setQueueMode(1);
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setVolume(1.0);
+      
+      // Enable await completion for better control
+      await _flutterTts.awaitSpeakCompletion(true);
+      
+      // Try to set Arabic language with fallback options
+      bool languageSet = false;
+      List<String> arabicOptions = ['ar', 'ar-SA', 'ar-EG', 'ar-AE', 'ar-JO', kArabicLanguageCode];
+      
+      for (String langCode in arabicOptions) {
+        try {
+          var result = await _flutterTts.setLanguage(langCode);
+          debugPrint("Language $langCode result: $result");
+          if (result == 1) {
+            languageSet = true;
+            debugPrint("Android Arabic language set successfully: $langCode");
+            break;
+          }
+        } catch (e) {
+          debugPrint("Failed to set language $langCode: $e");
+        }
+      }
+      
+      // If Arabic language couldn't be set, try to find Arabic voice
+      if (!languageSet) {
+        debugPrint("Direct language setting failed, trying voice selection...");
+        try {
+          final voices = await _flutterTts.getVoices;
+          if (voices != null) {
+            for (var voice in voices) {
+              String voiceStr = voice.toString().toLowerCase();
+              if (voiceStr.contains('ar-') || 
+                  voiceStr.contains('arab') || 
+                  voiceStr.contains('saudi') ||
+                  voiceStr.contains('egypt') ||
+                  voiceStr.contains('jordan')) {
+                try {
+                  if (voice is Map<String, String>) {
+                    await _flutterTts.setVoice(voice);
+                    languageSet = true;
+                    debugPrint("Android Arabic voice set via voice selection: $voice");
+                    break;
+                  }
+                } catch (e) {
+                  debugPrint("Error setting voice $voice: $e");
+                }
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint("Error finding Arabic voice: $e");
+        }
+      }
+      
+      // Try setting different TTS engines if default doesn't work
+      if (!languageSet) {
+        debugPrint("Voice selection failed, trying different engines...");
+        List<String> engineOptions = [
+          'com.google.android.tts',
+          'com.samsung.android.tts',
+          'com.svox.pico',
+          'com.android.tts', // Default Android engine
+        ];
+        
+        for (String engine in engineOptions) {
+          try {
+            debugPrint("Trying engine: $engine");
+            var result = await _flutterTts.setEngine(engine);
+            debugPrint("Engine $engine result: $result");
+            if (result == 1) {
+              debugPrint("Android TTS engine set: $engine");
+              
+              // Wait for engine to initialize
+              await Future.delayed(const Duration(milliseconds: 500));
+              
+              // Try setting Arabic again with new engine
+              for (String langCode in arabicOptions) {
+                try {
+                  var langResult = await _flutterTts.setLanguage(langCode);
+                  debugPrint("Language $langCode with engine $engine result: $langResult");
+                  if (langResult == 1) {
+                    languageSet = true;
+                    debugPrint("Arabic set with engine $engine and language $langCode");
+                    break;
+                  }
+                } catch (e) {
+                  debugPrint("Failed to set language $langCode with engine $engine: $e");
+                }
+              }
+              if (languageSet) break;
+            }
+          } catch (e) {
+            debugPrint("Failed to set engine $engine: $e");
+          }
+        }
+      }
+      
+      // Set queue mode and other Android-specific settings
+      try {
+        await _flutterTts.setQueueMode(1); // QUEUE_FLUSH mode
+        debugPrint("Android TTS queue mode set");
+      } catch (e) {
+        debugPrint("Error setting queue mode: $e");
+      }
+      
+      if (!languageSet) {
+        debugPrint("WARNING: Could not set Arabic language on Android, will use default language");
+        // Try English as absolute fallback
+        try {
+          await _flutterTts.setLanguage("en-US");
+          debugPrint("Fallback to English set");
+        } catch (e) {
+          debugPrint("Even English fallback failed: $e");
+        }
+      } else {
+        debugPrint("Android TTS setup completed successfully with Arabic support");
+      }
+      
     } catch (e) {
       debugPrint("Android TTS setup error: $e");
+      // Try basic fallback setup
+      try {
+        await _flutterTts.setSpeechRate(0.5);
+        await _flutterTts.setVolume(1.0);
+        debugPrint("Basic Android TTS fallback setup completed");
+      } catch (fallbackError) {
+        debugPrint("Even basic TTS setup failed: $fallbackError");
+      }
     }
   }
 
@@ -1156,7 +1408,7 @@ void initState() {
       },
     );
     
-    // Initial announcement with retry for iOS
+    // Initial announcement with retry for both platforms
     if (Platform.isIOS) {
       // On iOS, try multiple times to ensure first speech works
       bool spoken = false;
@@ -1167,7 +1419,20 @@ void initState() {
         }
       }
     } else {
-      _speak("أبدأ الملاحة إلى وجهتك");
+      // On Android, also use retry mechanism but with different timing
+      bool spoken = false;
+      for (int i = 0; i < 3 && !spoken; i++) {
+        spoken = await _speak("أبدأ الملاحة إلى وجهتك");
+        if (!spoken) {
+          await Future.delayed(const Duration(milliseconds: 700));
+        }
+      }
+      
+      // If still failed, try a simple test
+      if (!spoken) {
+        debugPrint("Android TTS initial announcement failed, trying simple test...");
+        await _speak("تجربة");
+      }
     }
   }
   
@@ -1185,14 +1450,6 @@ void initState() {
           debugPrint("Special handling for first iOS speech...");
           await Future.delayed(const Duration(milliseconds: 800));
           _isFirstSpeech = false;
-          
-          // For first speech, try a simple warmup phrase first
-          try {
-            await _flutterTts.speak("مرحبا");
-            await Future.delayed(const Duration(milliseconds: 500));
-          } catch (e) {
-            debugPrint("First speech warmup failed: $e");
-          }
         }
         
         // Set volume to maximum for each speech on iOS
@@ -1226,13 +1483,60 @@ void initState() {
         debugPrint("All iOS TTS speak attempts failed");
         return false;
       } else {
-        // For Android, simpler approach
-        int result = await _flutterTts.speak(text).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => 0,
-        );
+        // Enhanced Android approach with retry logic
+        debugPrint("Android TTS attempting to speak: $text");
         
-        return result == 1;
+        // First-time speech needs special handling on Android too
+        if (_isFirstSpeech) {
+          debugPrint("Special handling for first Android speech...");
+          await Future.delayed(const Duration(milliseconds: 500));
+          _isFirstSpeech = false;
+        }
+        
+        // Ensure volume is set for Android
+        await _flutterTts.setVolume(1.0);
+        
+        // Android-specific retry logic
+        for (int attempt = 0; attempt < 3; attempt++) {
+          try {
+            int result = await _flutterTts.speak(text).timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                debugPrint("Android TTS speak timeout on attempt $attempt");
+                return 0;
+              },
+            );
+            
+            debugPrint("Android TTS speak attempt $attempt result: $result");
+            
+            if (result == 1) {
+              debugPrint("Android TTS speak succeeded on attempt $attempt");
+              return true;
+            }
+            
+            // If first attempt failed, try re-initializing TTS
+            if (attempt == 0) {
+              debugPrint("First Android attempt failed, re-checking TTS setup...");
+              try {
+                // Quick re-setup of basic parameters
+                await _flutterTts.setSpeechRate(0.5);
+                await _flutterTts.setPitch(1.0);
+                await _flutterTts.setVolume(1.0);
+              } catch (e) {
+                debugPrint("Error re-setting Android TTS parameters: $e");
+              }
+            }
+            
+            // Small delay between attempts
+            await Future.delayed(const Duration(milliseconds: 500));
+          } catch (e) {
+            debugPrint("Android TTS speak error on attempt $attempt: $e");
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+        }
+        
+        debugPrint("All Android TTS speak attempts failed");
+        return false;
       }
     } catch (e) {
       debugPrint("TTS speak error: $e");
@@ -1658,11 +1962,62 @@ void initState() {
                       
     return shouldHide 
         ? null 
-        : FloatingActionButton(
-            backgroundColor: kPrimaryColor,
-            onPressed: _getCurrentLocation,
-            child: const Icon(Icons.my_location, color: Colors.white),
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // TTS Test Button
+              if (Platform.isAndroid) // Show TTS test button on Android for debugging
+                FloatingActionButton(
+                  heroTag: "tts_test",
+                  mini: true,
+                  backgroundColor: Colors.orange,
+                  onPressed: _testTtsManually,
+                  child: const Icon(Icons.volume_up, color: Colors.white, size: 20),
+                ),
+              if (Platform.isAndroid)
+                const SizedBox(height: 8),
+              // Main Location Button
+              FloatingActionButton(
+                heroTag: "location",
+                backgroundColor: kPrimaryColor,
+                onPressed: _getCurrentLocation,
+                child: const Icon(Icons.my_location, color: Colors.white),
+              ),
+            ],
           );
+  }
+
+  Future<void> _testTtsManually() async {
+    debugPrint("Manual TTS test requested");
+    _showSnackBar("جاري اختبار الصوت...");
+    
+    if (!_isTtsInitialized) {
+      await _initTts();
+    }
+    
+    List<String> testPhrases = [
+      "اختبار الصوت",
+      "تجربة",
+      "مرحبا",
+      "Test voice", // English fallback
+    ];
+    
+    bool anyWorked = false;
+    for (String phrase in testPhrases) {
+      debugPrint("Testing TTS with phrase: $phrase");
+      bool result = await _speak(phrase);
+      if (result) {
+        anyWorked = true;
+        _showSnackBar("الصوت يعمل بشكل صحيح!");
+        break;
+      }
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    if (!anyWorked) {
+      _showSnackBar("فشل اختبار الصوت - تحقق من إعدادات النظام", duration: const Duration(seconds: 5));
+      debugPrint("All TTS test phrases failed");
+    }
   }
 }
 
