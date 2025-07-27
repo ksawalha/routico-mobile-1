@@ -485,7 +485,6 @@ void initState() {
     try {
       _flutterTts = FlutterTts();
       
-      // Set up TTS handlers
       _flutterTts.setStartHandler(() {
         debugPrint("TTS started");
       });
@@ -510,24 +509,6 @@ void initState() {
       }
       
       setState(() => _isTtsInitialized = true);
-      
-      // Extra setup for iOS to ensure TTS is working
-      if (Platform.isIOS) {
-        // Pre-warm the TTS engine on a background thread
-        Future.delayed(const Duration(milliseconds: 100), () async {
-          for (int i = 0; i < 2; i++) {
-            try {
-              await _flutterTts.speak("مرحبا");
-              await Future.delayed(const Duration(milliseconds: 200));
-              await _flutterTts.stop();
-              debugPrint("iOS TTS pre-warm success");
-              break;
-            } catch (e) {
-              debugPrint("iOS TTS pre-warm error: $e");
-            }
-          }
-        });
-      }
     } catch (e) {
       debugPrint("TTS initialization error: $e");
       _showSnackBar(kTtsInitializationFailed);
@@ -613,7 +594,7 @@ void initState() {
       }
       
       // Set speech parameters - these should be after language selection
-      await _flutterTts.setSpeechRate(1.0);
+      await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setPitch(1.0);
       await _flutterTts.setVolume(1.0);
       
