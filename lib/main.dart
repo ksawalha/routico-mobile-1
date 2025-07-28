@@ -16,7 +16,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:collection/collection.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'login.dart';
@@ -24,6 +23,9 @@ import 'notifications.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:math';
+import 'widgets/dispatch_order_bottom_sheet.dart';
+import 'services/secure_storage_service.dart';
+import 'services/dispatch_order_service.dart';
 
 const Color kPrimaryColor = Color(0xFF287EE8);
 const Duration kApiTimeout = Duration(seconds: 30);
@@ -88,18 +90,37 @@ Future<void> _initializeOneSignal() async {
     if (Platform.isAndroid) {
       OneSignal.initialize(kOneSignalAppId);
       await OneSignal.User.pushSubscription.optIn();
+      
+      // Set up notification handlers inline
+      _setupOneSignalNotificationHandlers();
     }
     if (Platform.isIOS) {
       await Future.delayed(Duration(seconds: 2));
       OneSignal.initialize(kOneSignalAppId);
       await OneSignal.User.pushSubscription.optIn();
+      
+      // Set up notification handlers after initialization
+      _setupOneSignalNotificationHandlers();
     }
+    
     // Log success for debugging
     debugPrint("OneSignal successfully initialized");
   } catch (e) {
     debugPrint("OneSignal initialization error: $e");
     // Non-critical error, app can continue without push notifications
   }
+}
+
+void _setupOneSignalNotificationHandlers() {
+  // This sets up application-level notification handler
+  // The class-specific handlers will be set up in the widget state
+  OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+    debugPrint("App-level OneSignal notification received: ${event.notification.title}");
+    
+    // Allow the notification to be displayed
+    event.preventDefault();
+    event.notification.display();
+  });
 }
 
 Future<void> _requestBasicPermissions() async {
@@ -381,7 +402,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   // Map & Navigation Controllers
   gem.GemMapController? _mapController;
   gem.TaskHandler? _routingHandler;
@@ -408,6 +429,8 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isMapMovedByUser = false;
   bool _isVoiceMuted = false;
   bool _isOffline = false;
+  bool _showDispatchOrders = false;
+  int _currentDispatchOrderCount = 0;
 
   // TTS State
   bool _isFirstSpeech = true;
@@ -417,6 +440,9 @@ class _MyHomePageState extends State<MyHomePage> {
   String? _destinationName;
   final TextEditingController _searchController = TextEditingController();
   List<dynamic> _searchResults = [];
+  
+  // Global scaffold key
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // Services
   late FlutterTts _flutterTts;
@@ -434,12 +460,88 @@ class _MyHomePageState extends State<MyHomePage> {
 void initState() {
   super.initState();
   
+  // Add lifecycle observer
+  WidgetsBinding.instance.addObserver(this);
+  
   // Initialize UI-dependent services only after widget is built
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _initializePlatformServices();
     _getCurrentLocation();
+    
+    // Get initial dispatch orders count for comparison
+    _updateDispatchOrderCount();
+    
+    // Set up notification handlers for dispatch orders
+    _setupNotificationHandlers();
+    
+    // Show dispatch orders sheet when app starts
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      if (mounted && currentInstruction == null && !_showDispatchOrders) {
+        _toggleDispatchOrdersSheet();
+      }
+    });
   });
 }
+
+Future<void> _updateDispatchOrderCount() async {
+  try {
+    final orders = await DispatchOrderService.getDispatchOrders();
+    if (mounted) {
+      setState(() => _currentDispatchOrderCount = orders.length);
+      debugPrint("Initial dispatch orders count: $_currentDispatchOrderCount");
+    }
+  } catch (e) {
+    debugPrint("Error getting initial dispatch orders count: $e");
+  }
+}
+
+  void _setupNotificationHandlers() {
+    // Set up notification handlers
+    OneSignal.Notifications.addForegroundWillDisplayListener((event) {
+      debugPrint("OneSignal notification received: ${event.notification.title}");
+      
+      // Check if the notification is related to dispatch orders
+      if (event.notification.title?.contains("توصيل") == true || 
+          event.notification.body?.contains("توصيل") == true ||
+          event.notification.additionalData?["type"] == "dispatch") {
+        
+        // Load dispatch orders and show sheet if needed
+        _loadDispatchOrdersAndUpdateUI();
+      }
+      
+      // Complete the event to allow the notification to be displayed
+      event.preventDefault();
+    });
+  }
+  
+  Future<void> _loadDispatchOrdersAndUpdateUI() async {
+    try {
+      // Only proceed if we're not navigating
+      if (currentInstruction != null) {
+        debugPrint("Not loading dispatch orders during navigation");
+        return;
+      }
+      
+      debugPrint("Loading dispatch orders after notification");
+      final orders = await DispatchOrderService.getDispatchOrders();
+      
+      // Update the UI if mounted and there are new orders
+      if (mounted) {
+        int newCount = orders.length;
+        
+        // If we have more orders than before, show the sheet if it's hidden
+        if (newCount > _currentDispatchOrderCount && !_showDispatchOrders) {
+          debugPrint("New dispatch orders detected ($newCount vs $_currentDispatchOrderCount), showing bottom sheet");
+          _toggleDispatchOrdersSheet();
+        }
+        
+        // Update the count
+        _currentDispatchOrderCount = newCount;
+      }
+    } catch (e) {
+      debugPrint("Error loading dispatch orders after notification: $e");
+    }
+  }
 
   void _initializePlatformServices() {
     try {
@@ -587,9 +689,6 @@ void initState() {
       // Always wait for completion - critical for iOS
       await _flutterTts.awaitSpeakCompletion(true);
       
-      // Warm up TTS with a static Arabic phrase
-      await _warmupTts();
-      
       // If Arabic couldn't be set, try English as fallback
       if (!languageSet) {
         await _flutterTts.setLanguage("en-US");
@@ -607,16 +706,6 @@ void initState() {
     }
   }
 
-  Future<void> _warmupTts() async {
-    try {
-      // Speak a static Arabic phrase to warm up the engine
-      await _flutterTts.speak("تهيئة نظام التوجيه الصوتي");
-      await Future.delayed(const Duration(milliseconds: 500));
-    } catch (e) {
-      _showSnackBar("خطأ في تهيئة نظام التوجيه الصوتي: $e");
-    }
-  }
-
   void _initConnectivityListener() {
     _connectivitySubscription = Connectivity()
       .onConnectivityChanged
@@ -628,8 +717,27 @@ void initState() {
 
   @override
   void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    
+    // Close the bottom sheet if it's open
+    _bottomSheetController?.close();
     _cleanupResources();
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app goes to background, close the bottom sheet
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (_showDispatchOrders && _bottomSheetController != null) {
+        _bottomSheetController?.close();
+        setState(() {
+          _showDispatchOrders = false;
+          _bottomSheetHeight = 0.0;
+        });
+      }
+    }
   }
 
   void _cleanupResources() {
@@ -1019,7 +1127,7 @@ void initState() {
         setState(() => _isCalculatingRoute = false);
         ScaffoldMessenger.of(context).clearSnackBars();
 
-        if (err == gem.GemError.success && routes != null && routes.isNotEmpty) {
+        if (err == gem.GemError.success && routes.isNotEmpty) {
           _handleRouteSuccess(routes.first);
         } else {
           _handleRouteError(err);
@@ -1107,6 +1215,18 @@ void initState() {
   }
 
   void _startNavigation() async {
+    // Close dispatch orders sheet if it's open
+    if (_showDispatchOrders) {
+      setState(() {
+        _showDispatchOrders = false;
+        _bottomSheetHeight = 0.0;
+      });
+      // If we're using a modal, we need to pop it
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    }
+    
     // Initialize TTS first and wait for it to complete
     await _initTts();
     
@@ -1142,7 +1262,17 @@ void initState() {
       null,
       onNavigationInstruction: (instruction, events) {
         if (!mounted) return;
-        setState(() => currentInstruction = instruction);
+        setState(() {
+          currentInstruction = instruction;
+          
+          // Close dispatch orders sheet when navigation starts
+          if (currentInstruction != null && _showDispatchOrders) {
+            _showDispatchOrders = false;
+            _bottomSheetHeight = 0.0;
+            _bottomSheetController?.close();
+            _bottomSheetController = null;
+          }
+        });
       },
       onTextToSpeechInstruction: (ttsInstruction) {
         if (!_isVoiceMuted) _speak(ttsInstruction);
@@ -1224,6 +1354,145 @@ void initState() {
     );
   }
 
+  // Keep track of the bottom sheet controller and height
+  PersistentBottomSheetController? _bottomSheetController;
+  double _bottomSheetHeight = 0.0;
+
+  void _toggleDispatchOrdersSheet() {
+    // Don't show dispatch orders during navigation
+    if (currentInstruction != null) {
+      debugPrint("Cannot show dispatch orders during navigation");
+      return;
+    }
+    
+    debugPrint("_toggleDispatchOrdersSheet called, current state: ${_showDispatchOrders ? 'showing' : 'hidden'}");
+    
+    if (_showDispatchOrders) {
+      // Close the bottom sheet
+      debugPrint("Closing bottom sheet");
+      _bottomSheetController?.close();
+      _bottomSheetController = null;
+      
+      setState(() {
+        _showDispatchOrders = false;
+        _bottomSheetHeight = 0.0;
+      });
+    } else {
+      // Fetch the latest dispatch orders count
+      DispatchOrderService.getDispatchOrders().then((orders) {
+        _currentDispatchOrderCount = orders.length;
+        debugPrint("Updated dispatch order count: $_currentDispatchOrderCount");
+      }).catchError((error) {
+        debugPrint("Error fetching dispatch orders count: $error");
+      });
+      
+      setState(() {
+        _showDispatchOrders = true;
+        // Initialize bottom sheet height to 25% of screen height (initialChildSize)
+        _bottomSheetHeight = MediaQuery.of(context).size.height * 0.25;
+      });
+      
+      // Use showBottomSheet instead of showModalBottomSheet to remove the overlay
+      debugPrint("Showing bottom sheet");
+      try {
+        // Use the scaffold key to get the scaffold state
+        _bottomSheetController = _scaffoldKey.currentState!.showBottomSheet(
+          (context) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: NotificationListener<DraggableScrollableNotification>(
+                onNotification: (notification) {
+                  // Update bottom sheet height when it changes
+                  setState(() {
+                    _bottomSheetHeight = notification.extent * MediaQuery.of(context).size.height;
+                  });
+                  return true;
+                },
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.25, // Set initial height to 25% of screen
+                  minChildSize: 0.15, // Allow collapsing to 15%
+                    maxChildSize: 0.9, // Allow expanding up to 90%
+                  expand: false, // Don't take up the full available space
+                  builder: (context, scrollController) {
+                    return const DispatchOrderBottomSheet();
+                  },
+                ),
+              ),
+            );
+          },
+          backgroundColor: Colors.transparent,
+          enableDrag: true,
+        );
+        
+        // When the sheet is closed manually, update the state
+        _bottomSheetController!.closed.then((_) {
+          if (mounted) {
+            setState(() {
+              debugPrint("Bottom sheet closed automatically");
+              _showDispatchOrders = false;
+              _bottomSheetController = null;
+              _bottomSheetHeight = 0.0;
+            });
+          }
+        });
+      } catch (e) {
+        debugPrint("Error showing bottom sheet: $e");
+        // Fallback to modal bottom sheet if scaffold context isn't available
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          isDismissible: true,
+          backgroundColor: Colors.transparent,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (context) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: NotificationListener<DraggableScrollableNotification>(
+                onNotification: (notification) {
+                  // Update bottom sheet height when it changes
+                  setState(() {
+                    _bottomSheetHeight = notification.extent * MediaQuery.of(context).size.height;
+                  });
+                  return true;
+                },
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.25,
+                  minChildSize: 0.15,
+                  maxChildSize: 0.9,
+                  expand: false,
+                  builder: (context, scrollController) {
+                    return const DispatchOrderBottomSheet();
+                  },
+                ),
+              ),
+            );
+          },
+        ).then((_) {
+          if (mounted) {
+            setState(() {
+              _showDispatchOrders = false;
+              _bottomSheetHeight = 0.0;
+            });
+          }
+        });
+      }
+    }
+  }
+
   String _formatDistance(double meters) {
     if (meters < 1000) {
       return '${meters.toStringAsFixed(0)} م';
@@ -1258,6 +1527,7 @@ void initState() {
       : '${_expectedArrivalTime!.hour.toString().padLeft(2, '0')}:${_expectedArrivalTime!.minute.toString().padLeft(2, '0')}';
     
     return Scaffold(
+      key: _scaffoldKey,
       extendBodyBehindAppBar: true,
       extendBody: true,
       body: Stack(
@@ -1333,7 +1603,7 @@ void initState() {
                 onExit: _abandonDirections,
               ),
             ),
-
+            
           // Recenter Button
           if (isNavigating && _isMapMovedByUser)
             Positioned(
@@ -1460,6 +1730,12 @@ void initState() {
                       onTap: () => setState(() => _isSearching = true),
                     ),
                   ),
+                  if (!_isSearching)
+                    IconButton(
+                      icon: const Icon(Icons.assignment_outlined, color: kPrimaryColor),
+                      onPressed: _toggleDispatchOrdersSheet,
+                      tooltip: 'الرحلات',
+                    ),
                   if (!_isSearching)
                     IconButton(
                       icon: const Icon(Icons.notifications_outlined, color: kPrimaryColor),
@@ -1590,17 +1866,50 @@ void initState() {
   }
 
   Widget? _buildFloatingActionButton() {
-    final shouldHide = currentInstruction != null || 
-                      _isSearching || 
-                      (_areRoutesBuilt && !_isSearching);
-                      
-    return shouldHide 
-        ? null 
-        : FloatingActionButton(
+    final isNavigating = currentInstruction != null;
+    
+    if (isNavigating) {
+      return null;
+    }
+    
+    if (_areRoutesBuilt && !_isSearching) {
+      return null;
+    }
+    
+    if (_isSearching) {
+      return null;
+    }
+    
+    // Calculate the position for the location button
+    // If bottom sheet is visible, position it 15px above the sheet
+    // Otherwise use the default positioning
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Dispatch Orders Button - hide when bottom sheet is visible
+        if (!_showDispatchOrders)
+          FloatingActionButton(
+            heroTag: 'dispatchOrdersBtn',
+            backgroundColor: Colors.white,
+            onPressed: _toggleDispatchOrdersSheet,
+            child: const Icon(Icons.assignment, color: Colors.blue),
+          ),
+        if (!_showDispatchOrders) 
+          const SizedBox(height: 16),
+        // Current Location Button
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: EdgeInsets.only(bottom: _showDispatchOrders ? _bottomSheetHeight + 5.0 : 0),
+          child: FloatingActionButton(
+            heroTag: 'locationBtn',
             backgroundColor: kPrimaryColor,
             onPressed: _getCurrentLocation,
             child: const Icon(Icons.my_location, color: Colors.white),
-          );
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1663,33 +1972,16 @@ class NavigationInstructionPanel extends StatefulWidget {
 }
 
 class _NavigationInstructionPanelState extends State<NavigationInstructionPanel> {
-  gem.NavigationInstruction? _previousInstruction;
-
-  @override
-  void initState() {
-    super.initState();
-    _previousInstruction = widget.instruction;
-  }
-
   @override
   void didUpdateWidget(covariant NavigationInstructionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_imagesEqual(widget.instruction, oldWidget.instruction)) {
-      setState(() => _previousInstruction = widget.instruction);
-    }
-  }
-
-  bool _imagesEqual(gem.NavigationInstruction a, gem.NavigationInstruction b) {
-    final imgA = a.nextNextTurnImg?.getRenderableImage()?.bytes;
-    final imgB = b.nextNextTurnImg?.getRenderableImage()?.bytes;
-    return imgA != null && imgB != null && 
-        const ListEquality().equals(imgA, imgB);
   }
 
   @override
   Widget build(BuildContext context) {
-    final instructionText = widget.instruction.nextTurnInstruction ?? 'تابع للأمام';
-    final imageBytes = widget.instruction.nextNextTurnImg?.getRenderableImage()?.bytes;
+    final instructionText = widget.instruction.nextTurnInstruction;
+    final imgRenderer = widget.instruction.nextNextTurnImg.getRenderableImage();
+    final imageBytes = imgRenderer?.bytes;
     
     return Directionality(
       textDirection: TextDirection.rtl,
